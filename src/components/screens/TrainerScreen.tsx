@@ -6,6 +6,8 @@ import { Particles } from '@/components/Particles';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Shuffle, Target, Clock, BookOpen, ArrowRight, ChevronLeft, Languages, HelpCircle } from 'lucide-react';
 import courseData from '@/data/courseData.json';
+import { findThemeHint } from '@/data/hintPatterns';
+
 
 interface TrainerScreenProps {
   onBack: () => void;
@@ -34,7 +36,7 @@ type TrainerPhase = 'menu' | 'quiz' | 'result';
 export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMode }) => {
   const { t } = useLanguage();
   const { progress } = useProgress();
-  
+
   const [phase, setPhase] = useState<TrainerPhase>('menu');
   const [currentMode, setCurrentMode] = useState<string>('');
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -69,9 +71,9 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
   const handleSelectMode = (mode: string) => {
     setCurrentMode(mode);
     onSelectMode(mode);
-    
+
     let selectedQuestions: Question[] = [];
-    
+
     switch (mode) {
       case 'random':
         selectedQuestions = shuffleArray(getAllQuestions()).slice(0, 20);
@@ -104,7 +106,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
         selectedQuestions = shuffleArray(getAllQuestions()).slice(0, 30);
         break;
     }
-    
+
     if (selectedQuestions.length > 0) {
       setQuestions(selectedQuestions);
       setCurrentIndex(0);
@@ -115,13 +117,13 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
 
   const handleSelectAnswer = (answer: string) => {
     if (showFeedback) return;
-    
+
     setSelectedAnswer(answer);
     setShowFeedback(true);
-    
+
     const currentQuestion = questions[currentIndex];
     const isCorrect = answer === currentQuestion.correctAnswer;
-    
+
     if (isCorrect) {
       setCorrectCount(prev => prev + 1);
       setIsWrongAnswer(false);
@@ -138,7 +140,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
     setShowFeedback(false);
     setSelectedAnswer(null);
     setIsWrongAnswer(false);
-    
+
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
@@ -152,12 +154,12 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
   // Find the best matching signal for a question
   const findMatchingSignal = (question: Question, dayData: any): any => {
     if (!dayData?.signals) return null;
-    
+
     // Try to match by any word in the question appearing in signal
     for (const signal of dayData.signals) {
       const signalTitle = signal.title.toLowerCase();
       const signalContent = signal.content.toLowerCase();
-      
+
       const questionWords = question.questionKo.split(/\s+/);
       for (const word of questionWords) {
         if (word.length >= 2 && (signalTitle.includes(word) || signalContent.includes(word))) {
@@ -165,49 +167,42 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
         }
       }
     }
-    
-    // Fallback: return signal by question index
-    const questionIdx = parseInt(question.id.split('-')[1]) - 1;
-    if (questionIdx >= 0 && questionIdx < dayData.signals.length) {
-      return dayData.signals[questionIdx];
-    }
-    
-    return dayData.signals[0] || null;
+
+
+    // Removed index-based fallback to avoid irrelevant hints
+    return null;
   };
 
   // Find the best matching pattern for a question
   const findMatchingPattern = (question: Question, dayData: any): any => {
     if (!dayData?.patterns) return null;
-    
+
     for (const pattern of dayData.patterns) {
       const patternTitle = pattern.title.toLowerCase();
       const patternContent = pattern.content.toLowerCase();
-      
+
       const questionWords = question.questionKo.split(/\s+/);
       for (const word of questionWords) {
         if (word.length >= 2 && (patternTitle.includes(word) || patternContent.includes(word))) {
           return pattern;
         }
       }
-      
+
       const correctOption = {
         'A': question.optionA,
         'B': question.optionB,
         'C': question.optionC,
         'D': question.optionD,
       }[question.correctAnswer];
-      
+
       if (correctOption && patternContent.includes(correctOption.toLowerCase())) {
         return pattern;
       }
     }
-    
-    const questionIdx = parseInt(question.id.split('-')[1]) - 1;
-    if (questionIdx >= 0 && questionIdx < dayData.patterns.length) {
-      return dayData.patterns[questionIdx];
-    }
-    
-    return dayData.patterns[0] || null;
+
+
+    // Removed index-based fallback to avoid irrelevant hints
+    return null;
   };
 
   // Generate comprehensive explanation
@@ -228,52 +223,52 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
 
     const dayNumber = parseInt(question.id.split('-')[0].replace('Q', ''));
     const dayData = courseData.days.find((d: any) => d.dayNumber === dayNumber);
-    
+
     const matchingSignal = findMatchingSignal(question, dayData);
     const matchingPattern = findMatchingPattern(question, dayData);
-    
+
     let explanation = `✅ Правильный ответ: ${question.correctAnswer}) ${correctOption}\n`;
     explanation += `❌ Ты выбрал: ${selectedWrongAnswer}) ${wrongOption}\n\n`;
-    
+
     if (matchingPattern) {
       explanation += `🔑 ПАТТЕРН "${matchingPattern.title}":\n${matchingPattern.content}\n\n`;
     }
-    
+
     if (matchingSignal) {
       explanation += `🎯 СИГНАЛ "${matchingSignal.title}":\n${matchingSignal.content}`;
     }
-    
+
     if (!matchingPattern && !matchingSignal) {
       explanation += `📚 Запомни: правильный ответ — ${question.correctAnswer}) ${correctOption}`;
     }
-    
+
     return explanation;
   };
 
-  // Get question hint from signals - always returns something useful
-  const getQuestionHint = (question: Question): string => {
+  // Get question hint - prioritized by theme, then by day data
+  const getQuestionHint = (question: Question): string | null => {
+    // 1. Try to find theme-based hint first (high relevance)
+    const themeHint = findThemeHint(question.questionKo);
+    if (themeHint) return themeHint;
+
     const dayNumber = parseInt(question.id.split('-')[0].replace('Q', ''));
     const dayData = courseData.days.find((d: any) => d.dayNumber === dayNumber);
-    
+
     const matchingSignal = findMatchingSignal(question, dayData);
     const matchingPattern = findMatchingPattern(question, dayData);
-    
+
     let hint = '';
-    
+
     if (matchingSignal) {
       hint += `🎯 ${matchingSignal.title}\n${matchingSignal.content}`;
     }
-    
+
     if (matchingPattern) {
       if (hint) hint += '\n\n';
       hint += `🔑 ${matchingPattern.title}\n${matchingPattern.content}`;
     }
-    
-    if (!hint) {
-      hint = '📚 Подсказка для этого вопроса пока не добавлена';
-    }
-    
-    return hint;
+
+    return hint || null;
   };
 
   const handleBackToMenu = () => {
@@ -328,7 +323,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
     <>
       {/* Header */}
       <div className="relative z-10 mb-6">
-        <button 
+        <button
           onClick={onBack}
           className="p-2 rounded-xl hover:bg-secondary transition-colors mb-4"
         >
@@ -375,7 +370,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
       <div className="flex-1 flex flex-col relative z-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <button 
+          <button
             onClick={handleBackToMenu}
             className="p-2 rounded-xl hover:bg-secondary transition-colors"
           >
@@ -402,7 +397,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
 
         {/* Progress bar */}
         <div className="h-1 bg-muted rounded-full mb-4 overflow-hidden">
-          <div 
+          <div
             className="h-full gradient-primary transition-all duration-300"
             style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
           />
@@ -413,7 +408,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
           <p className="text-lg font-medium leading-relaxed text-foreground">
             {question.questionKo}
           </p>
-          {showTranslation && (
+          {showTranslation && questionHint && (
             <div className="mt-3 pt-3 border-t border-border/50">
               <p className="text-xs text-muted-foreground mb-2">🇷🇺 Подсказка на русском:</p>
               <p className="text-sm text-primary whitespace-pre-line leading-relaxed">
@@ -451,9 +446,9 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
                 <div className="flex items-start gap-3">
                   <span className={`
                     w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0
-                    ${showResult && isCorrect ? 'bg-success-foreground/20 text-success-foreground' : 
+                    ${showResult && isCorrect ? 'bg-success-foreground/20 text-success-foreground' :
                       showResult && isSelected ? 'bg-destructive-foreground/20 text-destructive-foreground' :
-                      'bg-primary/20 text-primary'}
+                        'bg-primary/20 text-primary'}
                   `}>
                     {option.key}
                   </span>
@@ -552,7 +547,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden p-4">
       <Particles count={15} />
-      
+
       {phase === 'menu' && renderMenu()}
       {phase === 'quiz' && renderQuiz()}
       {phase === 'result' && renderResult()}
