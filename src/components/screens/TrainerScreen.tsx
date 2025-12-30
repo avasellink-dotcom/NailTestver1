@@ -167,13 +167,13 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
   const renderQuestionWithHighlights = (questionText: string, matchedTrigger: string | null) => {
     if (!matchedTrigger) return <>{questionText}</>;
 
-    const regex = new RegExp(`(${matchedTrigger})`, 'gi');
+    const regex = new RegExp(`(${matchedTrigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
     const parts = questionText.split(regex);
 
     return (
       <>
         {parts.map((part, i) =>
-          regex.test(part) ? (
+          part.toLowerCase() === matchedTrigger.toLowerCase() ? (
             <span key={i} className="text-cyan-400 font-bold border-b border-cyan-400/30">
               {part}
             </span>
