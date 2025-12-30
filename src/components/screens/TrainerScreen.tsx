@@ -23,6 +23,7 @@ interface Question {
     D: string;
   };
   correctAnswer: string;
+  dayNumber?: number;
 }
 
 type TrainerPhase = 'menu' | 'quiz' | 'result';
@@ -47,7 +48,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
     const allQuestions: Question[] = [];
     courseData.forEach((day: any) => {
       if (day.questions) {
-        allQuestions.push(...day.questions);
+        allQuestions.push(...day.questions.map((q: any) => ({ ...q, dayNumber: day.dayNumber })));
       }
     });
     return allQuestions;
@@ -146,11 +147,12 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
   };
 
   // Find the best matching signal for a question
-  const findMatchingSignal = (question: Question, dayData: any): { signal: any; matchedTrigger: string | null } | null => {
-    if (!dayData?.signals) return null;
+  const findMatchingSignal = (question: Question, dayData?: any): { signal: any; matchedTrigger: string | null } | null => {
+    const dData = dayData || courseData.find((d: any) => d.dayNumber === question.dayNumber);
+    if (!dData?.signals) return null;
 
     const questionText = question.question.toLowerCase();
-    for (const signal of dayData.signals) {
+    for (const signal of dData.signals) {
       for (const trigger of signal.triggers) {
         if (trigger && questionText.includes(trigger.toLowerCase())) {
           return { signal, matchedTrigger: trigger };
@@ -196,10 +198,8 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
     const correctOption = question.options[question.correctAnswer as keyof typeof question.options];
     const wrongOption = question.options[selectedWrongAnswer as keyof typeof question.options];
 
-    const dayNumber = parseInt(question.id.split('-')[0].replace('Q', '')) || 1;
-    const dayData = courseData.find((d: any) => d.dayNumber === dayNumber);
-
-    const signalResult = findMatchingSignal(question, dayData);
+    const signalResult = findMatchingSignal(question);
+    const dayData = courseData.find((d: any) => d.dayNumber === question.dayNumber);
     const matchingPattern = findMatchingPattern(question, dayData);
 
     return {
@@ -436,43 +436,35 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
         {/* Explanation for wrong answer */}
         {isWrongAnswer && expData && (
           <div className="mt-4 animate-in slide-in-from-bottom duration-300">
-            <GlassCard className="border-2 border-destructive/30 bg-destructive/5">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl gradient-error flex items-center justify-center shrink-0">
-                  <HelpCircle className="w-5 h-5 text-white" />
+            {expData.matchingSignal ? (
+              <div className="bg-gray-800 p-4 rounded-lg mt-4 border border-cyan-500">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-2xl">🚨</span>
+                  <span className="text-cyan-400 font-bold">Сигнал: {expData.matchingSignal.title}</span>
                 </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-destructive mb-2">❌ Неправильно</h4>
-
-                  <div className="space-y-3 text-sm text-muted-foreground leading-relaxed">
-                    <p>✅ Правильный ответ: <span className="text-foreground font-bold">{question.correctAnswer}) {expData.correctOption}</span></p>
-
-                    {expData.matchingSignal && (
-                      <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                        <p className="text-primary font-bold mb-1">
-                          🚨 Сигнал найден: "{expData.matchedTrigger}"
-                        </p>
-                        <p className="text-foreground italic mb-2">"{expData.matchingSignal.reaction}"</p>
-                        {expData.matchingSignal.trap && (
-                          <p className="text-xs text-destructive/80 font-medium">⚠️ Ловушка: {expData.matchingSignal.trap}</p>
-                        )}
-                      </div>
-                    )}
-
-                    {expData.matchingPattern && !expData.matchingSignal && (
-                      <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                        <p className="font-bold text-foreground mb-1">🔑 Паттерн: {expData.matchingPattern.title}</p>
-                        <p>{expData.matchingPattern.rule}</p>
-                      </div>
-                    )}
-
-                    {!expData.matchingSignal && !expData.matchingPattern && (
-                      <p>Запомни этот ответ для подготовки к CBT тестам.</p>
-                    )}
+                <div className="text-white mb-2">
+                  <span className="font-bold text-yellow-400">🧠 Правило: </span>
+                  {expData.matchingSignal.reaction}
+                </div>
+                {expData.matchingSignal.trap && (
+                  <div className="text-red-300 text-sm">
+                    ⚠️ Ловушка: {expData.matchingSignal.trap}
                   </div>
-                </div>
+                )}
               </div>
-            </GlassCard>
+            ) : (
+              // Fallback только если сигнал не найден
+              <div className="bg-red-900/50 p-4 rounded-lg mt-4 text-white">
+                <p className="font-bold mb-1">❌ Неправильно</p>
+                <p>Правильный ответ: <span className="font-bold">{question.correctAnswer}) {expData.correctOption}</span></p>
+                {expData.matchingPattern && (
+                  <div className="mt-2 pt-2 border-t border-white/10 text-sm italic text-gray-200">
+                    <p className="font-bold text-yellow-400/80">🔑 {expData.matchingPattern.title}:</p>
+                    <p>{expData.matchingPattern.rule}</p>
+                  </div>
+                )}
+              </div>
+            )}
             <Button
               variant="gradient"
               size="lg"
