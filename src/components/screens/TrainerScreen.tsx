@@ -4,7 +4,7 @@ import { useProgress } from '@/contexts/ProgressContext';
 import { GlassCard } from '@/components/GlassCard';
 import { Particles } from '@/components/Particles';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Shuffle, Target, Clock, BookOpen, ArrowRight, ChevronLeft, Languages, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Shuffle, Target, Clock, BookOpen, ArrowRight, ChevronLeft, Languages, HelpCircle, Zap } from 'lucide-react';
 import courseData from '@/data/courseDays.json';
 import { findThemeHint } from '@/data/hintPatterns';
 
@@ -147,38 +147,70 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
   };
 
   // Find the best matching signal for a question
-  const findMatchingSignal = (question: Question, dayData?: any): { signal: any; matchedTrigger: string | null } | null => {
-    const dData = dayData || courseData.find((d: any) => d.dayNumber === question.dayNumber);
-    if (!dData?.signals) return null;
+  const findMatchingSignal = (questionText: string, dayNumber: number): { signal: any; trigger: string | null } | null => {
+    // dayNumber is crucial for finding the correct signals
+    const currentDay = courseData.find((d: any) => d.dayNumber === dayNumber);
 
-    const questionText = question.question.toLowerCase();
-    for (const signal of dData.signals) {
+    console.log('🔍 [TRIGGER SEARCH] Ищу триггер в дне:', dayNumber);
+    console.log('📝 [TRIGGER SEARCH] Вопрос:', questionText);
+
+    if (!currentDay || !currentDay.signals) {
+      console.log('⚠️ [TRIGGER SEARCH] День или сигналы не найдены для дня:', dayNumber);
+      return null;
+    }
+
+    // Нормализуй вопрос (убери лишние пробелы, lowercase)
+    const normalizedQuestion = questionText.toLowerCase().trim();
+
+    // Пройди по всем сигналам дня
+    for (const signal of currentDay.signals) {
+      if (!signal.triggers) continue;
+
+      // Проверь каждый триггер
       for (const trigger of signal.triggers) {
-        // Улучшенный поиск: .toLowerCase() + .includes()
-        if (trigger && questionText.includes(trigger.toLowerCase())) {
-          return { signal, matchedTrigger: trigger };
+        if (!trigger) continue;
+        const normalizedTrigger = trigger.toLowerCase().trim();
+
+        // Если триггер найден в вопросе
+        if (normalizedQuestion.includes(normalizedTrigger)) {
+          console.log('✅ [TRIGGER SEARCH] Триггер найден:', trigger);
+          return { signal, trigger };
         }
       }
     }
+
+    console.log('❌ [TRIGGER SEARCH] Триггер не найден');
     return null;
   };
 
   // Render question text with highlighted trigger
-  const renderQuestionWithHighlights = (questionText: string, matchedTrigger: string | null) => {
-    if (!matchedTrigger) return <>{questionText}</>;
+  const renderQuestionWithHighlights = (text: string, dayNum: number) => {
+    const match = findMatchingSignal(text, dayNum);
 
-    const regex = new RegExp(`(${matchedTrigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    const parts = questionText.split(regex);
+    if (!match) {
+      return <>{text}</>;
+    }
+
+    const { trigger } = match;
+    // Экранируем спецсимволы в триггере
+    const escapedTrigger = trigger!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedTrigger})`, 'gi');
+    const parts = text.split(regex);
 
     return (
       <>
-        {parts.map((part, i) =>
-          part.toLowerCase() === matchedTrigger.toLowerCase() ? (
-            <span key={i} className="text-cyan-400 font-bold border-b border-cyan-400/30">
-              {part}
-            </span>
-          ) : part
-        )}
+        {parts.map((part, i) => (
+          <span
+            key={i}
+            className={
+              part.toLowerCase() === trigger!.toLowerCase()
+                ? 'text-[#00f2ff] font-bold underline underline-offset-4 decoration-[#00f2ff]/50'
+                : ''
+            }
+          >
+            {part}
+          </span>
+        ))}
       </>
     );
   };
@@ -201,15 +233,16 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
     const correctOption = question.options[question.correctAnswer as keyof typeof question.options];
     const wrongOption = question.options[selectedWrongAnswer as keyof typeof question.options];
 
-    const signalResult = findMatchingSignal(question);
-    const dayData = courseData.find((d: any) => d.dayNumber === question.dayNumber);
+    const dayNumber = question.dayNumber || 1;
+    const signalResult = findMatchingSignal(question.question, dayNumber);
+    const dayData = courseData.find((d: any) => d.dayNumber === dayNumber);
     const matchingPattern = findMatchingPattern(question, dayData);
 
     return {
       correctOption,
       wrongOption,
       matchingSignal: signalResult?.signal,
-      matchedTrigger: signalResult?.matchedTrigger,
+      matchedTrigger: signalResult?.trigger,
       matchingPattern
     };
   };
@@ -220,10 +253,9 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
     const themeHint = findThemeHint(question.question);
     if (themeHint) return themeHint;
 
-    const dayNumber = parseInt(question.id.split('-')[0].replace('Q', '')) || 1;
+    const dayNumber = question.dayNumber || 1;
+    const signalResult = findMatchingSignal(question.question, dayNumber);
     const dayData = courseData.find((d: any) => d.dayNumber === dayNumber);
-
-    const signalResult = findMatchingSignal(question, dayData);
     const matchingPattern = findMatchingPattern(question, dayData);
 
     let hint = '';
@@ -332,9 +364,8 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
       { key: 'D', text: question.options.D },
     ];
 
-    const dayNumber = parseInt(question.id.split('-')[0].replace('Q', '')) || 1;
-    const dayData = courseData.find((d: any) => d.dayNumber === dayNumber);
-    const signalResult = findMatchingSignal(question, dayData);
+    const dayNumber = question.dayNumber || 1;
+    const signalResult = findMatchingSignal(question.question, dayNumber);
 
     const expData = selectedAnswer ? getExplanationData(question, selectedAnswer) : null;
     const questionHint = getQuestionHint(question);
@@ -379,7 +410,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
         {/* Question Card */}
         <GlassCard className="mb-4">
           <p className="text-lg font-medium leading-relaxed text-foreground">
-            {renderQuestionWithHighlights(question.question, signalResult?.matchedTrigger || null)}
+            {renderQuestionWithHighlights(question.question, dayNumber)}
           </p>
           {showTranslation && questionHint && (
             <div className="mt-3 pt-3 border-t border-border/50">
@@ -438,13 +469,21 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
 
         {isWrongAnswer && expData && (
           <div className="mt-4 animate-in slide-in-from-bottom duration-300">
-            <div className="bg-gray-800 p-4 rounded-lg mt-3">
-              <p className="text-red-400 text-lg font-bold">❌ Неправильно</p>
-              <p className="text-green-400 mt-1">✅ Ответ: {question.correctAnswer}) {expData.correctOption}</p>
+            <div className="bg-[#1a1b1e] p-5 rounded-xl mt-4 border-b-2 border-[#00f2ff] shadow-xl">
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-[#ff4d4d] text-lg font-bold">❌ Неправильно</p>
+              </div>
+              <p className="text-[#4ade80] font-medium mb-3">✅ Верно: {question.correctAnswer}) {expData.correctOption}</p>
               {expData.matchingSignal && (
-                <p className="text-gray-300 text-sm mt-2 line-clamp-2">
-                  💡 {expData.matchingSignal.title}: {expData.matchingSignal.reaction}
-                </p>
+                <div className="mt-4 pt-4 border-t border-white/5 space-y-2">
+                  <p className="text-[#00f2ff] text-sm font-bold flex items-center gap-1">
+                    <Zap className="w-4 h-4" />
+                    {expData.matchingSignal.title}
+                  </p>
+                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">
+                    {expData.matchingSignal.reaction}
+                  </p>
+                </div>
               )}
             </div>
             <Button
