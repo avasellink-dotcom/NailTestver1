@@ -6,35 +6,34 @@ import { Button } from '@/components/ui/button';
 import { GlassCard } from '@/components/GlassCard';
 import { Particles } from '@/components/Particles';
 import { ArrowLeft, ArrowRight, Target, Key, ChevronLeft, ChevronRight, Languages, HelpCircle } from 'lucide-react';
-import courseData from '@/data/courseData.json';
+import courseData from '@/data/courseDays.json';
 
 type LessonPhase = 'signals' | 'patterns' | 'test' | 'result';
 
 interface Signal {
+  id: string;
   title: string;
-  content: string;
+  triggers: string[];
+  reaction: string;
+  trap: string | null;
 }
 
 interface Pattern {
+  id: string;
   title: string;
-  content: string;
+  rule: string;
 }
 
 interface Question {
   id: string;
-  questionKo: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
+  question: string;
+  options: {
+    A: string;
+    B: string;
+    C: string;
+    D: string;
+  };
   correctAnswer: string;
-  answerPattern: string;
-  questionRu?: string;
-  optionARu?: string;
-  optionBRu?: string;
-  optionCRu?: string;
-  optionDRu?: string;
-  explanationRu?: string;
 }
 
 interface LessonScreenProps {
@@ -60,9 +59,9 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
   const [showTranslation, setShowTranslation] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
 
-  const dayData = courseData.days.find(d => d.dayNumber === dayNumber);
-  const signals: Signal[] = dayData?.signals || [];
-  const patterns: Pattern[] = dayData?.patterns || [];
+  const dayData = courseData.find((d: any) => d.dayNumber === dayNumber);
+  const signals: Signal[] = dayData?.signals as any || [];
+  const patterns: Pattern[] = dayData?.patterns as any || [];
   const questions: Question[] = (dayData as any)?.questions || [];
 
   const dp = dayProgress[dayNumber];
@@ -113,13 +112,13 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
 
   const handleSelectAnswer = (answer: string) => {
     if (showFeedback) return;
-    
+
     setSelectedAnswer(answer);
     setShowFeedback(true);
-    
+
     const currentQuestion = questions[currentIndex];
     const isCorrect = answer === currentQuestion.correctAnswer;
-    
+
     if (isCorrect) {
       hapticFeedback('success');
     } else {
@@ -129,7 +128,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     setAnswers([...answers, {
       questionId: currentQuestion.id,
       isCorrect,
-      patternId: currentQuestion.answerPattern,
+      patternId: currentQuestion.id, // Using question ID as placeholder since pattern mapping is implicit
     }]);
 
     // Don't auto-advance if answer is wrong - let user read explanation
@@ -145,17 +144,17 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     setSelectedAnswer(null);
     setShowExplanation(false);
     setShowTranslation(false);
-    
+
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
       // Calculate results
       const correctCount = answers.filter(a => a.isCorrect).length;
-      const score = Math.round((correctCount / answers.length) * 100);
+      const score = Math.round((correctCount / (answers.length || 1)) * 100);
       const errors = answers
         .filter(a => !a.isCorrect)
         .map(a => ({ questionId: a.questionId, patternId: a.patternId }));
-      
+
       completeTest(dayNumber, score, errors);
       setPhase('result');
     }
@@ -163,100 +162,52 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
 
   // Find the best matching signal for a question based on Korean keywords
   const findMatchingSignal = (question: Question): Signal | null => {
-    // Try to match by any word in the question appearing in signal
+    // Try to match by triggers
     for (const signal of signals) {
-      const signalTitle = signal.title.toLowerCase();
-      const signalContent = signal.content.toLowerCase();
-      
-      // Split question into words and check each
-      const questionWords = question.questionKo.split(/\s+/);
-      for (const word of questionWords) {
-        if (word.length >= 2 && (signalTitle.includes(word) || signalContent.includes(word))) {
+      const questionText = question.question.toLowerCase();
+      for (const trigger of signal.triggers) {
+        if (trigger && questionText.includes(trigger.toLowerCase())) {
           return signal;
         }
       }
     }
-    
-    // Fallback: return signal by question index
-    const questionIdx = parseInt(question.id.split('-')[1]) - 1;
-    if (questionIdx >= 0 && questionIdx < signals.length) {
-      return signals[questionIdx];
-    }
-    
-    // Last resort: return first signal of the day
-    return signals[0] || null;
+
+    // Fallback: return signal by index if available
+    return signals[currentIndex] || signals[0] || null;
   };
 
   // Find the best matching pattern for a question
   const findMatchingPattern = (question: Question): Pattern | null => {
     // Try to match by question words in pattern
     for (const pattern of patterns) {
-      const patternTitle = pattern.title.toLowerCase();
-      const patternContent = pattern.content.toLowerCase();
-      
-      const questionWords = question.questionKo.split(/\s+/);
-      for (const word of questionWords) {
-        if (word.length >= 2 && (patternTitle.includes(word) || patternContent.includes(word))) {
-          return pattern;
-        }
-      }
-      
-      // Check if pattern content mentions the correct answer
-      const correctOption = {
-        'A': question.optionA,
-        'B': question.optionB,
-        'C': question.optionC,
-        'D': question.optionD,
-      }[question.correctAnswer];
-      
-      if (correctOption && patternContent.includes(correctOption.toLowerCase())) {
-        return pattern;
-      }
+      const patternRule = pattern.rule.toLowerCase();
+      const questionText = question.question.toLowerCase();
+
+      if (patternRule.includes(questionText)) return pattern;
     }
-    
-    // Fallback: use pattern by question index
-    const questionIdx = parseInt(question.id.split('-')[1]) - 1;
-    if (questionIdx >= 0 && questionIdx < patterns.length) {
-      return patterns[questionIdx];
-    }
-    
-    return patterns[0] || null;
+
+    return patterns[currentIndex] || patterns[0] || null;
   };
 
   // Generate comprehensive explanation based on signals and patterns
   const generateExplanation = (question: Question, selectedWrongAnswer: string): string => {
-    const correctOption = {
-      'A': question.optionA,
-      'B': question.optionB,
-      'C': question.optionC,
-      'D': question.optionD,
-    }[question.correctAnswer];
-
-    const wrongOption = {
-      'A': question.optionA,
-      'B': question.optionB,
-      'C': question.optionC,
-      'D': question.optionD,
-    }[selectedWrongAnswer];
+    const correctOption = question.options[question.correctAnswer as keyof typeof question.options];
+    const wrongOption = question.options[selectedWrongAnswer as keyof typeof question.options];
 
     const matchingSignal = findMatchingSignal(question);
     const matchingPattern = findMatchingPattern(question);
-    
+
     let explanation = `✅ Правильный ответ: ${question.correctAnswer}) ${correctOption}\n`;
     explanation += `❌ Ты выбрал: ${selectedWrongAnswer}) ${wrongOption}\n\n`;
-    
+
     if (matchingPattern) {
-      explanation += `🔑 ПАТТЕРН "${matchingPattern.title}":\n${matchingPattern.content}\n\n`;
+      explanation += `🔑 ПАТТЕРН "${matchingPattern.title}":\n${matchingPattern.rule}\n\n`;
     }
-    
+
     if (matchingSignal) {
-      explanation += `🎯 СИГНАЛ "${matchingSignal.title}":\n${matchingSignal.content}`;
+      explanation += `🎯 СИГНАЛ "${matchingSignal.title}":\n${matchingSignal.reaction || ''} ${matchingSignal.trap ? `\nЛовушка: ${matchingSignal.trap}` : ''}`;
     }
-    
-    if (!matchingPattern && !matchingSignal) {
-      explanation += `📚 Запомни: правильный ответ на этот тип вопросов — ${question.correctAnswer}) ${correctOption}`;
-    }
-    
+
     return explanation;
   };
 
@@ -264,22 +215,23 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
   const getQuestionHint = (question: Question): string => {
     const matchingSignal = findMatchingSignal(question);
     const matchingPattern = findMatchingPattern(question);
-    
+
     let hint = '';
-    
+
     if (matchingSignal) {
-      hint += `🎯 ${matchingSignal.title}\n${matchingSignal.content}`;
+      hint += `🎯 ${matchingSignal.title}\n${matchingSignal.reaction}`;
+      if (matchingSignal.trap) hint += `\nЛовушка: ${matchingSignal.trap}`;
     }
-    
+
     if (matchingPattern) {
       if (hint) hint += '\n\n';
-      hint += `🔑 ${matchingPattern.title}\n${matchingPattern.content}`;
+      hint += `🔑 ${matchingPattern.title}\n${matchingPattern.rule}`;
     }
-    
+
     if (!hint) {
       hint = '📚 Подсказка для этого вопроса пока не добавлена';
     }
-    
+
     return hint;
   };
 
@@ -307,7 +259,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
 
         {/* Progress bar */}
         <div className="h-1 bg-muted rounded-full mb-6 overflow-hidden">
-          <div 
+          <div
             className="h-full gradient-primary transition-all duration-300"
             style={{ width: `${((currentIndex + 1) / signals.length) * 100}%` }}
           />
@@ -322,9 +274,15 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
             <h3 className="text-lg font-bold flex-1">{signal.title}</h3>
           </div>
           <div className="flex-1 overflow-y-auto">
-            <p className="text-muted-foreground whitespace-pre-line leading-relaxed">
-              {signal.content}
+            <p className="text-muted-foreground whitespace-pre-line leading-relaxed mb-4">
+              {signal.reaction}
             </p>
+            {signal.trap && (
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 mt-4">
+                <p className="text-sm font-bold text-destructive mb-1">ЛОВУШКА:</p>
+                <p className="text-sm text-muted-foreground">{signal.trap}</p>
+              </div>
+            )}
           </div>
         </GlassCard>
 
@@ -378,7 +336,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
 
         {/* Progress bar */}
         <div className="h-1 bg-muted rounded-full mb-6 overflow-hidden">
-          <div 
+          <div
             className="h-full gradient-success transition-all duration-300"
             style={{ width: `${((currentIndex + 1) / patterns.length) * 100}%` }}
           />
@@ -394,7 +352,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
           </div>
           <div className="flex-1 overflow-y-auto">
             <p className="text-muted-foreground whitespace-pre-line leading-relaxed">
-              {pattern.content}
+              {pattern.rule}
             </p>
           </div>
         </GlassCard>
@@ -441,10 +399,10 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     }
 
     const options = [
-      { key: 'A', text: question.optionA, textRu: question.optionARu },
-      { key: 'B', text: question.optionB, textRu: question.optionBRu },
-      { key: 'C', text: question.optionC, textRu: question.optionCRu },
-      { key: 'D', text: question.optionD, textRu: question.optionDRu },
+      { key: 'A', text: question.options.A },
+      { key: 'B', text: question.options.B },
+      { key: 'C', text: question.options.C },
+      { key: 'D', text: question.options.D },
     ];
 
     const isWrongAnswer = showFeedback && selectedAnswer !== question.correctAnswer;
@@ -472,7 +430,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
 
         {/* Progress bar */}
         <div className="h-1 bg-muted rounded-full mb-4 overflow-hidden">
-          <div 
+          <div
             className="h-full gradient-primary transition-all duration-300"
             style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
           />
@@ -481,7 +439,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
         {/* Question Card */}
         <GlassCard className="mb-4">
           <p className="text-lg font-medium leading-relaxed text-foreground">
-            {question.questionKo}
+            {question.question}
           </p>
           {showTranslation && (
             <div className="mt-3 pt-3 border-t border-border/50">
@@ -521,9 +479,9 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
                 <div className="flex items-start gap-3">
                   <span className={`
                     w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0
-                    ${showResult && isCorrect ? 'bg-success-foreground/20 text-success-foreground' : 
+                    ${showResult && isCorrect ? 'bg-success-foreground/20 text-success-foreground' :
                       showResult && isSelected ? 'bg-destructive-foreground/20 text-destructive-foreground' :
-                      'bg-primary/20 text-primary'}
+                        'bg-primary/20 text-primary'}
                   `}>
                     {option.key}
                   </span>
@@ -531,11 +489,6 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
                     <span className={`${showResult && (isCorrect || isSelected) ? 'text-white font-medium' : ''}`}>
                       {option.text}
                     </span>
-                    {showTranslation && option.textRu && (
-                      <p className="text-xs text-primary/80 mt-1">
-                        🇷🇺 {option.textRu}
-                      </p>
-                    )}
                   </div>
                 </div>
               </button>
@@ -630,7 +583,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
       <Particles count={10} />
 
       {/* Back Button */}
-      <button 
+      <button
         onClick={onBack}
         className="p-2 rounded-xl hover:bg-secondary transition-colors mb-4 self-start relative z-10"
       >

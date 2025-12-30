@@ -8,7 +8,7 @@ import { LanguageToggle } from '@/components/LanguageToggle';
 import { Particles } from '@/components/Particles';
 import { PaymentModal } from '@/components/PaymentModal';
 import { ArrowRight, Dumbbell, RotateCcw, Trophy, Flame, Target } from 'lucide-react';
-import courseData from '@/data/courseData.json';
+import courseData from '@/data/courseDays.json';
 
 // Import day images
 import day1Image from '@/assets/day-1.png';
@@ -33,11 +33,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [showPayment, setShowPayment] = useState(false);
 
   const currentDay = progress.currentDay;
-  const totalDays = courseData.totalDays;
+  const totalDays = courseData.length;
   const completedCount = progress.completedDays.length;
   const overallProgress = Math.round((completedCount / totalDays) * 100);
   const lastScore = progress.lastTestScore;
-  
+
   const accuracy = useMemo(() => {
     if (progress.totalAnswered === 0) return 0;
     return Math.round((progress.totalCorrect / progress.totalAnswered) * 100);
@@ -50,7 +50,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const currentDayImage = dayImages[currentDay] || day1Image;
-  const currentDayData = courseData.days.find(d => d.dayNumber === currentDay);
+  const currentDayData = courseData.find((d: any) => d.dayNumber === currentDay);
   const currentDayTitle = currentDayData?.title || `${t('common.day')} ${currentDay}`;
 
   const handleContinue = () => {
@@ -108,14 +108,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </GlassCard>
 
         {/* Current Day Card */}
-        <GlassCard 
-          className="relative overflow-hidden p-0" 
-          hover 
+        <GlassCard
+          className="relative overflow-hidden p-0"
+          hover
           onClick={handleContinue}
         >
           <div className="absolute inset-0">
-            <img 
-              src={currentDayImage} 
+            <img
+              src={currentDayImage}
               alt={currentDayTitle}
               className="w-full h-full object-cover opacity-30"
             />
@@ -132,16 +132,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <p className="text-sm text-muted-foreground mb-4">{motivationalMessage}</p>
             <div className="flex items-center gap-2">
               <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full gradient-primary transition-all duration-500"
-                  style={{ 
-                    width: dayProgress[currentDay]?.testCompleted 
-                      ? '100%' 
-                      : dayProgress[currentDay]?.patternsCompleted 
-                        ? '66%' 
-                        : dayProgress[currentDay]?.signalsCompleted 
-                          ? '33%' 
-                          : '0%' 
+                  style={{
+                    width: dayProgress[currentDay]?.testCompleted
+                      ? '100%'
+                      : dayProgress[currentDay]?.patternsCompleted
+                        ? '66%'
+                        : dayProgress[currentDay]?.signalsCompleted
+                          ? '33%'
+                          : '0%'
                   }}
                 />
               </div>

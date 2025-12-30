@@ -34,15 +34,15 @@ export const THEME_PATTERNS: ThemePattern[] = [
  */
 export const findThemeHint = (questionKo: string): string | null => {
   if (!questionKo) return null;
-  
+
   const text = questionKo.toLowerCase();
-  
+
   for (const pattern of THEME_PATTERNS) {
     const hasMatch = pattern.keywords.some(keyword => text.includes(keyword.toLowerCase()));
     if (hasMatch) {
       return pattern.hint;
     }
   }
-  
+
   return null;
 };

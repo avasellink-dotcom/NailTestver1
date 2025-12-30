@@ -5,9 +5,8 @@ import { GlassCard } from '@/components/GlassCard';
 import { Particles } from '@/components/Particles';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Shuffle, Target, Clock, BookOpen, ArrowRight, ChevronLeft, Languages, HelpCircle } from 'lucide-react';
-import courseData from '@/data/courseData.json';
+import courseData from '@/data/courseDays.json';
 import { findThemeHint } from '@/data/hintPatterns';
-
 
 interface TrainerScreenProps {
   onBack: () => void;
@@ -16,19 +15,14 @@ interface TrainerScreenProps {
 
 interface Question {
   id: string;
-  questionKo: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
+  question: string;
+  options: {
+    A: string;
+    B: string;
+    C: string;
+    D: string;
+  };
   correctAnswer: string;
-  answerPattern: string;
-  questionRu?: string;
-  optionARu?: string;
-  optionBRu?: string;
-  optionCRu?: string;
-  optionDRu?: string;
-  explanationRu?: string;
 }
 
 type TrainerPhase = 'menu' | 'quiz' | 'result';
@@ -51,7 +45,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
 
   const getAllQuestions = (): Question[] => {
     const allQuestions: Question[] = [];
-    courseData.days.forEach((day: any) => {
+    courseData.forEach((day: any) => {
       if (day.questions) {
         allQuestions.push(...day.questions);
       }
@@ -80,8 +74,8 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
         break;
       case 'weak':
         // Get questions from error patterns
-        const errorPatterns = new Set(progress.errors.map(e => e.patternId));
-        selectedQuestions = getAllQuestions().filter(q => errorPatterns.has(q.answerPattern));
+        const errorQuestionIds = new Set(progress.errors.map(e => e.questionId));
+        selectedQuestions = getAllQuestions().filter(q => errorQuestionIds.has(q.id));
         if (selectedQuestions.length === 0) {
           selectedQuestions = shuffleArray(getAllQuestions()).slice(0, 10);
         }
@@ -155,21 +149,14 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
   const findMatchingSignal = (question: Question, dayData: any): any => {
     if (!dayData?.signals) return null;
 
-    // Try to match by any word in the question appearing in signal
     for (const signal of dayData.signals) {
-      const signalTitle = signal.title.toLowerCase();
-      const signalContent = signal.content.toLowerCase();
-
-      const questionWords = question.questionKo.split(/\s+/);
-      for (const word of questionWords) {
-        if (word.length >= 2 && (signalTitle.includes(word) || signalContent.includes(word))) {
+      const questionText = question.question.toLowerCase();
+      for (const trigger of signal.triggers) {
+        if (trigger && questionText.includes(trigger.toLowerCase())) {
           return signal;
         }
       }
     }
-
-
-    // Removed index-based fallback to avoid irrelevant hints
     return null;
   };
 
@@ -178,51 +165,21 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
     if (!dayData?.patterns) return null;
 
     for (const pattern of dayData.patterns) {
-      const patternTitle = pattern.title.toLowerCase();
-      const patternContent = pattern.content.toLowerCase();
+      const patternRule = pattern.rule.toLowerCase();
+      const questionText = question.question.toLowerCase();
 
-      const questionWords = question.questionKo.split(/\s+/);
-      for (const word of questionWords) {
-        if (word.length >= 2 && (patternTitle.includes(word) || patternContent.includes(word))) {
-          return pattern;
-        }
-      }
-
-      const correctOption = {
-        'A': question.optionA,
-        'B': question.optionB,
-        'C': question.optionC,
-        'D': question.optionD,
-      }[question.correctAnswer];
-
-      if (correctOption && patternContent.includes(correctOption.toLowerCase())) {
-        return pattern;
-      }
+      if (patternRule.includes(questionText)) return pattern;
     }
-
-
-    // Removed index-based fallback to avoid irrelevant hints
     return null;
   };
 
   // Generate comprehensive explanation
   const generateExplanation = (question: Question, selectedWrongAnswer: string): string => {
-    const correctOption = {
-      'A': question.optionA,
-      'B': question.optionB,
-      'C': question.optionC,
-      'D': question.optionD,
-    }[question.correctAnswer];
+    const correctOption = question.options[question.correctAnswer as keyof typeof question.options];
+    const wrongOption = question.options[selectedWrongAnswer as keyof typeof question.options];
 
-    const wrongOption = {
-      'A': question.optionA,
-      'B': question.optionB,
-      'C': question.optionC,
-      'D': question.optionD,
-    }[selectedWrongAnswer];
-
-    const dayNumber = parseInt(question.id.split('-')[0].replace('Q', ''));
-    const dayData = courseData.days.find((d: any) => d.dayNumber === dayNumber);
+    const dayNumber = parseInt(question.id.split('-')[0].replace('Q', '')) || 1;
+    const dayData = courseData.find((d: any) => d.dayNumber === dayNumber);
 
     const matchingSignal = findMatchingSignal(question, dayData);
     const matchingPattern = findMatchingPattern(question, dayData);
@@ -231,11 +188,12 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
     explanation += `❌ Ты выбрал: ${selectedWrongAnswer}) ${wrongOption}\n\n`;
 
     if (matchingPattern) {
-      explanation += `🔑 ПАТТЕРН "${matchingPattern.title}":\n${matchingPattern.content}\n\n`;
+      explanation += `🔑 ПАТТЕРН "${matchingPattern.title}":\n${matchingPattern.rule}\n\n`;
     }
 
     if (matchingSignal) {
-      explanation += `🎯 СИГНАЛ "${matchingSignal.title}":\n${matchingSignal.content}`;
+      explanation += `🎯 СИГНАЛ "${matchingSignal.title}":\n${matchingSignal.reaction}`;
+      if (matchingSignal.trap) explanation += `\nЛовушка: ${matchingSignal.trap}`;
     }
 
     if (!matchingPattern && !matchingSignal) {
@@ -248,11 +206,11 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
   // Get question hint - prioritized by theme, then by day data
   const getQuestionHint = (question: Question): string | null => {
     // 1. Try to find theme-based hint first (high relevance)
-    const themeHint = findThemeHint(question.questionKo);
+    const themeHint = findThemeHint(question.question);
     if (themeHint) return themeHint;
 
-    const dayNumber = parseInt(question.id.split('-')[0].replace('Q', ''));
-    const dayData = courseData.days.find((d: any) => d.dayNumber === dayNumber);
+    const dayNumber = parseInt(question.id.split('-')[0].replace('Q', '')) || 1;
+    const dayData = courseData.find((d: any) => d.dayNumber === dayNumber);
 
     const matchingSignal = findMatchingSignal(question, dayData);
     const matchingPattern = findMatchingPattern(question, dayData);
@@ -260,12 +218,12 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
     let hint = '';
 
     if (matchingSignal) {
-      hint += `🎯 ${matchingSignal.title}\n${matchingSignal.content}`;
+      hint += `🎯 ${matchingSignal.title}\n${matchingSignal.reaction}`;
     }
 
     if (matchingPattern) {
       if (hint) hint += '\n\n';
-      hint += `🔑 ${matchingPattern.title}\n${matchingPattern.content}`;
+      hint += `🔑 ${matchingPattern.title}\n${matchingPattern.rule}`;
     }
 
     return hint || null;
@@ -357,10 +315,10 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
     if (!question) return null;
 
     const options = [
-      { key: 'A', text: question.optionA, textRu: question.optionARu },
-      { key: 'B', text: question.optionB, textRu: question.optionBRu },
-      { key: 'C', text: question.optionC, textRu: question.optionCRu },
-      { key: 'D', text: question.optionD, textRu: question.optionDRu },
+      { key: 'A', text: question.options.A },
+      { key: 'B', text: question.options.B },
+      { key: 'C', text: question.options.C },
+      { key: 'D', text: question.options.D },
     ];
 
     const explanation = selectedAnswer ? generateExplanation(question, selectedAnswer) : '';
@@ -406,7 +364,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
         {/* Question Card */}
         <GlassCard className="mb-4">
           <p className="text-lg font-medium leading-relaxed text-foreground">
-            {question.questionKo}
+            {question.question}
           </p>
           {showTranslation && questionHint && (
             <div className="mt-3 pt-3 border-t border-border/50">
@@ -456,11 +414,6 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
                     <span className={`${showResult && (isCorrect || isSelected) ? 'text-white font-medium' : 'text-foreground'}`}>
                       {option.text}
                     </span>
-                    {showTranslation && option.textRu && (
-                      <p className="text-xs text-primary/80 mt-1">
-                        🇷🇺 {option.textRu}
-                      </p>
-                    )}
                   </div>
                 </div>
               </button>
@@ -500,7 +453,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
   };
 
   const renderResult = () => {
-    const score = Math.round((correctCount / questions.length) * 100);
+    const score = Math.round((correctCount / (questions.length || 1)) * 100);
     const isGood = score >= 70;
 
     return (
