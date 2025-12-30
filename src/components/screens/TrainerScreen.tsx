@@ -151,35 +151,32 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
     // dayNumber is crucial for finding the correct signals
     const currentDay = courseData.find((d: any) => d.dayNumber === dayNumber);
 
-    console.log('🔍 [TRIGGER SEARCH] Ищу триггер в дне:', dayNumber);
-    console.log('📝 [TRIGGER SEARCH] Вопрос:', questionText);
-
     if (!currentDay || !currentDay.signals) {
-      console.log('⚠️ [TRIGGER SEARCH] День или сигналы не найдены для дня:', dayNumber);
       return null;
     }
 
-    // Нормализуй вопрос (убери лишние пробелы, lowercase)
+    // Normalize question
     const normalizedQuestion = questionText.toLowerCase().trim();
 
-    // Пройди по всем сигналам дня
+    // Iterate through signals
     for (const signal of currentDay.signals) {
       if (!signal.triggers) continue;
 
-      // Проверь каждый триггер
-      for (const trigger of signal.triggers) {
-        if (!trigger) continue;
-        const normalizedTrigger = trigger.toLowerCase().trim();
+      // Check each trigger string which might contain multiple sub-triggers (e.g. "A / B" or "A → B")
+      for (const rawTrigger of signal.triggers) {
+        if (!rawTrigger) continue;
 
-        // Если триггер найден в вопросе
-        if (normalizedQuestion.includes(normalizedTrigger)) {
-          console.log('✅ [TRIGGER SEARCH] Триггер найден:', trigger);
-          return { signal, trigger };
+        // Split by separators commonly used in the new all_days.json
+        const subTriggers = rawTrigger.split(/[\/\→]/).map(t => t.toLowerCase().trim()).filter(t => t.length > 0);
+
+        for (const subTrigger of subTriggers) {
+          if (normalizedQuestion.includes(subTrigger)) {
+            return { signal, trigger: subTrigger };
+          }
         }
       }
     }
 
-    console.log('❌ [TRIGGER SEARCH] Триггер не найден');
     return null;
   };
 

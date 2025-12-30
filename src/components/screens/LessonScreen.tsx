@@ -173,12 +173,21 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
 
   // Find the best matching signal for a question based on Korean keywords
   const findMatchingSignal = (question: Question): Signal | null => {
+    const questionText = question.question.toLowerCase();
+
     // Try to match by triggers
     for (const signal of signals) {
-      const questionText = question.question.toLowerCase();
-      for (const trigger of signal.triggers) {
-        if (trigger && questionText.includes(trigger.toLowerCase())) {
-          return signal;
+      if (!signal.triggers) continue;
+
+      for (const rawTrigger of signal.triggers) {
+        if (!rawTrigger) continue;
+
+        const subTriggers = rawTrigger.split(/[\/\→]/).map(t => t.toLowerCase().trim()).filter(t => t.length > 0);
+
+        for (const subTrigger of subTriggers) {
+          if (questionText.includes(subTrigger)) {
+            return signal;
+          }
         }
       }
     }
