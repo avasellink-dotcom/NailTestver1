@@ -146,18 +146,36 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
   };
 
   // Find the best matching signal for a question
-  const findMatchingSignal = (question: Question, dayData: any): any => {
+  const findMatchingSignal = (question: Question, dayData: any): { signal: any; matchedTrigger: string | null } | null => {
     if (!dayData?.signals) return null;
 
+    const questionText = question.question.toLowerCase();
     for (const signal of dayData.signals) {
-      const questionText = question.question.toLowerCase();
       for (const trigger of signal.triggers) {
         if (trigger && questionText.includes(trigger.toLowerCase())) {
-          return signal;
+          return { signal, matchedTrigger: trigger };
         }
       }
     }
     return null;
+  };
+
+  // Render question text with highlighted trigger
+  const renderQuestionWithHighlights = (questionText: string, matchedTrigger: string | null) => {
+    if (!matchedTrigger) return questionText;
+
+    const parts = questionText.split(new RegExp(`(${matchedTrigger})`, 'gi'));
+    return (
+      <>
+        {parts.map((part, i) =>
+          part.toLowerCase() === matchedTrigger.toLowerCase() ? (
+            <span key={i} className="text-[#00FFFF] font-bold underline decoration-[#00FFFF]/30">
+              {part}
+            </span>
+          ) : part
+        )}
+      </>
+    );
   };
 
   // Find the best matching pattern for a question
@@ -174,33 +192,23 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
   };
 
   // Generate comprehensive explanation
-  const generateExplanation = (question: Question, selectedWrongAnswer: string): string => {
+  const getExplanationData = (question: Question, selectedWrongAnswer: string) => {
     const correctOption = question.options[question.correctAnswer as keyof typeof question.options];
     const wrongOption = question.options[selectedWrongAnswer as keyof typeof question.options];
 
     const dayNumber = parseInt(question.id.split('-')[0].replace('Q', '')) || 1;
     const dayData = courseData.find((d: any) => d.dayNumber === dayNumber);
 
-    const matchingSignal = findMatchingSignal(question, dayData);
+    const signalResult = findMatchingSignal(question, dayData);
     const matchingPattern = findMatchingPattern(question, dayData);
 
-    let explanation = `✅ Правильный ответ: ${question.correctAnswer}) ${correctOption}\n`;
-    explanation += `❌ Ты выбрал: ${selectedWrongAnswer}) ${wrongOption}\n\n`;
-
-    if (matchingPattern) {
-      explanation += `🔑 ПАТТЕРН "${matchingPattern.title}":\n${matchingPattern.rule}\n\n`;
-    }
-
-    if (matchingSignal) {
-      explanation += `🎯 СИГНАЛ "${matchingSignal.title}":\n${matchingSignal.reaction}`;
-      if (matchingSignal.trap) explanation += `\nЛовушка: ${matchingSignal.trap}`;
-    }
-
-    if (!matchingPattern && !matchingSignal) {
-      explanation += `📚 Запомни: правильный ответ — ${question.correctAnswer}) ${correctOption}`;
-    }
-
-    return explanation;
+    return {
+      correctOption,
+      wrongOption,
+      matchingSignal: signalResult?.signal,
+      matchedTrigger: signalResult?.matchedTrigger,
+      matchingPattern
+    };
   };
 
   // Get question hint - prioritized by theme, then by day data
@@ -212,13 +220,13 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
     const dayNumber = parseInt(question.id.split('-')[0].replace('Q', '')) || 1;
     const dayData = courseData.find((d: any) => d.dayNumber === dayNumber);
 
-    const matchingSignal = findMatchingSignal(question, dayData);
+    const signalResult = findMatchingSignal(question, dayData);
     const matchingPattern = findMatchingPattern(question, dayData);
 
     let hint = '';
 
-    if (matchingSignal) {
-      hint += `🎯 ${matchingSignal.title}\n${matchingSignal.reaction}`;
+    if (signalResult?.signal) {
+      hint += `🎯 ${signalResult.signal.title}\n${signalResult.signal.reaction}`;
     }
 
     if (matchingPattern) {
@@ -321,7 +329,11 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
       { key: 'D', text: question.options.D },
     ];
 
-    const explanation = selectedAnswer ? generateExplanation(question, selectedAnswer) : '';
+    const dayNumber = parseInt(question.id.split('-')[0].replace('Q', '')) || 1;
+    const dayData = courseData.find((d: any) => d.dayNumber === dayNumber);
+    const signalResult = findMatchingSignal(question, dayData);
+
+    const expData = selectedAnswer ? getExplanationData(question, selectedAnswer) : null;
     const questionHint = getQuestionHint(question);
 
     return (
@@ -364,7 +376,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
         {/* Question Card */}
         <GlassCard className="mb-4">
           <p className="text-lg font-medium leading-relaxed text-foreground">
-            {question.question}
+            {renderQuestionWithHighlights(question.question, signalResult?.matchedTrigger || null)}
           </p>
           {showTranslation && questionHint && (
             <div className="mt-3 pt-3 border-t border-border/50">
@@ -422,7 +434,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
         </div>
 
         {/* Explanation for wrong answer */}
-        {isWrongAnswer && (
+        {isWrongAnswer && expData && (
           <div className="mt-4 animate-in slide-in-from-bottom duration-300">
             <GlassCard className="border-2 border-destructive/30 bg-destructive/5">
               <div className="flex items-start gap-3">
@@ -431,9 +443,33 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
                 </div>
                 <div className="flex-1">
                   <h4 className="font-bold text-destructive mb-2">❌ Неправильно</h4>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
-                    {explanation}
-                  </p>
+
+                  <div className="space-y-3 text-sm text-muted-foreground leading-relaxed">
+                    <p>✅ Правильный ответ: <span className="text-foreground font-bold">{question.correctAnswer}) {expData.correctOption}</span></p>
+
+                    {expData.matchingSignal && (
+                      <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                        <p className="text-primary font-bold mb-1">
+                          🚨 Сигнал найден: "{expData.matchedTrigger}"
+                        </p>
+                        <p className="text-foreground italic mb-2">"{expData.matchingSignal.reaction}"</p>
+                        {expData.matchingSignal.trap && (
+                          <p className="text-xs text-destructive/80 font-medium">⚠️ Ловушка: {expData.matchingSignal.trap}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {expData.matchingPattern && !expData.matchingSignal && (
+                      <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+                        <p className="font-bold text-foreground mb-1">🔑 Паттерн: {expData.matchingPattern.title}</p>
+                        <p>{expData.matchingPattern.rule}</p>
+                      </div>
+                    )}
+
+                    {!expData.matchingSignal && !expData.matchingPattern && (
+                      <p>Запомни этот ответ для подготовки к CBT тестам.</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </GlassCard>
