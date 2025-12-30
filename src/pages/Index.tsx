@@ -8,10 +8,11 @@ import { DayListScreen } from '@/components/screens/DayListScreen';
 import { LessonScreen } from '@/components/screens/LessonScreen';
 import { TrainerScreen } from '@/components/screens/TrainerScreen';
 import { ActivationScreen } from '@/components/screens/ActivationScreen';
+import { TutorialScreen } from '@/components/screens/TutorialScreen';
 import { supabase } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
 
-type Screen = 'onboarding' | 'home' | 'dayList' | 'lesson' | 'trainer' | 'errors' | 'activation';
+type Screen = 'onboarding' | 'home' | 'dayList' | 'lesson' | 'trainer' | 'errors' | 'activation' | 'tutorial';
 
 const AppContent: React.FC = () => {
   const { tg, user } = useTelegram();
@@ -126,7 +127,11 @@ const AppContent: React.FC = () => {
           onTrainer={() => setScreen('trainer')}
           onErrors={() => setScreen('errors')}
           onDayList={() => setScreen('dayList')}
+          onTutorial={() => setScreen('tutorial')}
         />
+      )}
+      {screen === 'tutorial' && (
+        <TutorialScreen onComplete={() => setScreen('home')} />
       )}
       {screen === 'dayList' && (
         <DayListScreen

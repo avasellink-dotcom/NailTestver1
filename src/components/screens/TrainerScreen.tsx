@@ -154,6 +154,7 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
     const questionText = question.question.toLowerCase();
     for (const signal of dData.signals) {
       for (const trigger of signal.triggers) {
+        // Улучшенный поиск: .toLowerCase() + .includes()
         if (trigger && questionText.includes(trigger.toLowerCase())) {
           return { signal, matchedTrigger: trigger };
         }
@@ -164,14 +165,16 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
 
   // Render question text with highlighted trigger
   const renderQuestionWithHighlights = (questionText: string, matchedTrigger: string | null) => {
-    if (!matchedTrigger) return questionText;
+    if (!matchedTrigger) return <>{questionText}</>;
 
-    const parts = questionText.split(new RegExp(`(${matchedTrigger})`, 'gi'));
+    const regex = new RegExp(`(${matchedTrigger})`, 'gi');
+    const parts = questionText.split(regex);
+
     return (
       <>
         {parts.map((part, i) =>
-          part.toLowerCase() === matchedTrigger.toLowerCase() ? (
-            <span key={i} className="text-[#00FFFF] font-bold underline decoration-[#00FFFF]/30">
+          regex.test(part) ? (
+            <span key={i} className="text-cyan-400 font-bold border-b border-cyan-400/30">
               {part}
             </span>
           ) : part
@@ -433,38 +436,17 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
           })}
         </div>
 
-        {/* Explanation for wrong answer */}
         {isWrongAnswer && expData && (
           <div className="mt-4 animate-in slide-in-from-bottom duration-300">
-            {expData.matchingSignal ? (
-              <div className="bg-gray-800 p-4 rounded-lg mt-4 border border-cyan-500">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-2xl">🚨</span>
-                  <span className="text-cyan-400 font-bold">Сигнал: {expData.matchingSignal.title}</span>
-                </div>
-                <div className="text-white mb-2">
-                  <span className="font-bold text-yellow-400">🧠 Правило: </span>
-                  {expData.matchingSignal.reaction}
-                </div>
-                {expData.matchingSignal.trap && (
-                  <div className="text-red-300 text-sm">
-                    ⚠️ Ловушка: {expData.matchingSignal.trap}
-                  </div>
-                )}
-              </div>
-            ) : (
-              // Fallback только если сигнал не найден
-              <div className="bg-red-900/50 p-4 rounded-lg mt-4 text-white">
-                <p className="font-bold mb-1">❌ Неправильно</p>
-                <p>Правильный ответ: <span className="font-bold">{question.correctAnswer}) {expData.correctOption}</span></p>
-                {expData.matchingPattern && (
-                  <div className="mt-2 pt-2 border-t border-white/10 text-sm italic text-gray-200">
-                    <p className="font-bold text-yellow-400/80">🔑 {expData.matchingPattern.title}:</p>
-                    <p>{expData.matchingPattern.rule}</p>
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="bg-gray-800 p-4 rounded-lg mt-3">
+              <p className="text-red-400 text-lg font-bold">❌ Неправильно</p>
+              <p className="text-green-400 mt-1">✅ Ответ: {question.correctAnswer}) {expData.correctOption}</p>
+              {expData.matchingSignal && (
+                <p className="text-gray-300 text-sm mt-2 line-clamp-2">
+                  💡 {expData.matchingSignal.title}: {expData.matchingSignal.reaction}
+                </p>
+              )}
+            </div>
             <Button
               variant="gradient"
               size="lg"

@@ -78,9 +78,20 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     if (currentIndex < signals.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
-      completeSignals(dayNumber);
-      setPhase('patterns');
-      setCurrentIndex(0);
+      const studiedCount = dp?.signalsCompleted ? signals.length : currentIndex + 1;
+      const totalSignals = signals.length;
+
+      if (studiedCount < totalSignals) {
+        if (confirm(`⚠️ Секунду!\nТы изучил ${studiedCount}/${totalSignals} сигналов.\n\nПродолжить без изучения всех сигналов?`)) {
+          completeSignals(dayNumber);
+          setPhase('patterns');
+          setCurrentIndex(0);
+        }
+      } else {
+        completeSignals(dayNumber);
+        setPhase('patterns');
+        setCurrentIndex(0);
+      }
     }
     hapticFeedback('light');
   };
@@ -271,11 +282,14 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
               <Target className="w-5 h-5 text-primary-foreground" />
             </div>
-            <h3 className="text-lg font-bold flex-1">{signal.title}</h3>
+            <h1 className="text-xl font-bold flex-1">{signal.title}</h1>
           </div>
           <div className="flex-1 overflow-y-auto">
-            <p className="text-muted-foreground whitespace-pre-line leading-relaxed mb-4">
+            <p className="text-gray-400 mt-2 whitespace-pre-line leading-relaxed mb-4">
               {signal.reaction}
+            </p>
+            <p className="text-sm text-cyan-400 mt-4 font-medium">
+              💡 Триггеры: {signal.triggers.join(', ')}
             </p>
             {signal.trap && (
               <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 mt-4">
@@ -499,19 +513,15 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
         {/* Explanation for wrong answer */}
         {isWrongAnswer && (
           <div className="mt-4 animate-in slide-in-from-bottom duration-300">
-            <GlassCard className="border-2 border-destructive/30 bg-destructive/5">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl gradient-error flex items-center justify-center shrink-0">
-                  <HelpCircle className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-destructive mb-2">❌ Неправильно</h4>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
-                    {explanation}
-                  </p>
-                </div>
-              </div>
-            </GlassCard>
+            <div className="bg-gray-800 p-4 rounded-lg mt-3">
+              <p className="text-red-400 text-lg font-bold">❌ Неправильно</p>
+              <p className="text-green-400 mt-1">✅ Ответ: {question.correctAnswer}) {question.options[question.correctAnswer as keyof typeof question.options]}</p>
+              {findMatchingSignal(question) && (
+                <p className="text-gray-300 text-sm mt-2 line-clamp-2">
+                  💡 {findMatchingSignal(question)?.title}: {findMatchingSignal(question)?.reaction}
+                </p>
+              )}
+            </div>
             <Button
               variant="gradient"
               size="lg"
@@ -592,6 +602,15 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
 
       {/* Content */}
       <div className="flex-1 flex flex-col relative z-10">
+        {dayNumber === 1 && phase === 'signals' && currentIndex === 0 && (
+          <div className="bg-purple-900/50 border border-purple-500/30 p-4 rounded-lg mb-6 animate-in fade-in slide-in-from-top duration-500">
+            <p className="text-white font-medium">
+              📚 Вводный урок (3 вопроса)
+              <br />
+              <span className="text-sm text-purple-200 opacity-80">Познакомься с методикой! Мы научим тебя находить правильные ответы быстрее.</span>
+            </p>
+          </div>
+        )}
         {phase === 'signals' && renderSignals()}
         {phase === 'patterns' && renderPatterns()}
         {phase === 'test' && renderTest()}

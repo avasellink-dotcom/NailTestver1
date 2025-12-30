@@ -7,7 +7,7 @@ import { ProgressRing } from '@/components/ProgressRing';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { Particles } from '@/components/Particles';
 import { PaymentModal } from '@/components/PaymentModal';
-import { ArrowRight, Dumbbell, RotateCcw, Trophy, Flame, Target } from 'lucide-react';
+import { ArrowRight, Dumbbell, RotateCcw, Trophy, Flame, Target, HelpCircle } from 'lucide-react';
 import courseData from '@/data/courseDays.json';
 
 // Import day images
@@ -20,6 +20,7 @@ interface HomeScreenProps {
   onTrainer: () => void;
   onErrors: () => void;
   onDayList: () => void;
+  onTutorial: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -27,6 +28,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onTrainer,
   onErrors,
   onDayList,
+  onTutorial,
 }) => {
   const { t } = useLanguage();
   const { progress, dayProgress, isDayAvailable } = useProgress();
@@ -83,7 +85,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               {t('common.day')} {currentDay}
             </h1>
           </div>
-          <LanguageToggle />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onTutorial}
+              className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+              title="Как это работает?"
+            >
+              <HelpCircle className="w-5 h-5 text-primary" />
+            </button>
+            <LanguageToggle />
+          </div>
         </div>
       </div>
 
