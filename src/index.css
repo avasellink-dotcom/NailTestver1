@@ -354,4 +354,43 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Trigger Word Highlight - Core Feature */
+  .trigger-highlight {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(59, 130, 246, 0.25));
+    color: #38bdf8;
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    font-weight: 600;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
+    transition: all 0.2s ease;
+  }
+
+  .trigger-highlight:hover {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.35), rgba(59, 130, 246, 0.35));
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+  }
+
+  /* Intro Screen Animations */
+  .animate-bounce-subtle {
+    animation: bounceSub 2s ease-in-out infinite;
+  }
+
+  @keyframes bounceSub {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  /* Signal Card Styling */
+  .signal-trigger-badge {
+    @apply inline-flex items-center px-2 py-1 rounded-md text-xs font-medium;
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+  }
 }

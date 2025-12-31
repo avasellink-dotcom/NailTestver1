@@ -5,13 +5,24 @@ import { GlassCard } from '@/components/GlassCard';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { Particles } from '@/components/Particles';
 import { PaymentModal } from '@/components/PaymentModal';
-import { ArrowLeft, Check, Lock, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Check, Lock, ChevronRight, Zap, Key, BookOpen } from 'lucide-react';
 import courseData from '@/data/courseDays.json';
 
 // Import day images
 import day1Image from '@/assets/day-1.png';
 import day2Image from '@/assets/day-2.png';
 import day3Image from '@/assets/day-3.png';
+
+interface DayData {
+  dayNumber: number;
+  emoji: string;
+  title: string;
+  titleKo?: string;
+  titleRu?: string;
+  signals?: any[];
+  patterns?: any[];
+  questions?: any[];
+}
 
 interface DayListScreenProps {
   onBack: () => void;
@@ -61,7 +72,7 @@ export const DayListScreen: React.FC<DayListScreenProps> = ({ onBack, onSelectDa
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-xl font-bold">{t('days.title')}</h1>
+          <h1 className="text-xl font-bold">28-дневный курс</h1>
           <LanguageToggle />
         </div>
       </div>
@@ -69,11 +80,19 @@ export const DayListScreen: React.FC<DayListScreenProps> = ({ onBack, onSelectDa
       {/* Day Grid */}
       <div className="flex-1 px-4 relative z-10 overflow-y-auto scrollbar-hide">
         <div className="grid gap-4">
-          {courseData.map((day) => {
+          {(courseData as DayData[]).map((day) => {
             const status = getDayStatus(day.dayNumber);
             const dp = dayProgress[day.dayNumber];
             const image = dayImages[day.dayNumber] || getDefaultImage(day.dayNumber);
             const isLocked = status === 'locked';
+
+            const signalsCount = day.signals?.length || 0;
+            const patternsCount = day.patterns?.length || 0;
+            const questionsCount = day.questions?.length || 0;
+
+            // Get display title
+            const displayTitle = day.titleRu || day.title;
+            const isReviewDay = day.title.includes('REVIEW');
 
             return (
               <GlassCard
@@ -86,7 +105,7 @@ export const DayListScreen: React.FC<DayListScreenProps> = ({ onBack, onSelectDa
                 <div className="absolute inset-0">
                   <img
                     src={image}
-                    alt={day.title}
+                    alt={displayTitle}
                     className={`w-full h-full object-cover ${isLocked ? 'blur-sm' : ''}`}
                     style={{ opacity: 0.25 }}
                   />
@@ -114,22 +133,32 @@ export const DayListScreen: React.FC<DayListScreenProps> = ({ onBack, onSelectDa
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-lg">{day.emoji}</span>
-                      <h3 className="font-semibold truncate">{day.title}</h3>
+                      <h3 className="font-semibold truncate">{displayTitle}</h3>
                     </div>
 
-                    {/* Progress indicators */}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className={dp?.signalsCompleted ? 'text-success' : ''}>
-                        {t('days.signals')} {dp?.signalsCompleted && '✓'}
+                    {/* Content counts */}
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      {signalsCount > 0 && (
+                        <span className={`flex items-center gap-1 ${dp?.signalsCompleted ? 'text-cyan-400' : ''}`}>
+                          <Zap className="w-3 h-3" />
+                          {signalsCount}
+                        </span>
+                      )}
+                      {patternsCount > 0 && (
+                        <span className={`flex items-center gap-1 ${dp?.patternsCompleted ? 'text-green-400' : ''}`}>
+                          <Key className="w-3 h-3" />
+                          {patternsCount}
+                        </span>
+                      )}
+                      <span className={`flex items-center gap-1 ${dp?.testCompleted ? 'text-purple-400' : ''}`}>
+                        <BookOpen className="w-3 h-3" />
+                        {questionsCount}
                       </span>
-                      <span>•</span>
-                      <span className={dp?.patternsCompleted ? 'text-success' : ''}>
-                        {t('days.patterns')} {dp?.patternsCompleted && '✓'}
-                      </span>
-                      <span>•</span>
-                      <span className={dp?.testCompleted ? 'text-success' : ''}>
-                        {t('days.test')} {dp?.testCompleted && `(${dp.testScore}%)`}
-                      </span>
+                      {dp?.testCompleted && dp.testScore !== null && (
+                        <span className="font-medium text-success">
+                          {dp.testScore}%
+                        </span>
+                      )}
                     </div>
 
                     {/* Status badge */}
@@ -138,10 +167,11 @@ export const DayListScreen: React.FC<DayListScreenProps> = ({ onBack, onSelectDa
                         inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                         ${status === 'completed' ? 'bg-success/20 text-success' :
                           status === 'locked' ? 'bg-muted text-muted-foreground' :
-                            'bg-primary/20 text-primary'}
+                            isReviewDay ? 'bg-yellow-500/20 text-yellow-400' : 'bg-primary/20 text-primary'}
                       `}>
-                        {status === 'completed' ? t('days.completed') :
-                          status === 'locked' ? t('days.locked') : t('days.available')}
+                        {status === 'completed' ? 'Завершён' :
+                          status === 'locked' ? 'Заблокирован' :
+                            isReviewDay ? 'Повторение' : 'Доступен'}
                       </span>
                     </div>
                   </div>

@@ -5,10 +5,11 @@ import { useTelegram } from '@/hooks/useTelegram';
 import { Button } from '@/components/ui/button';
 import { GlassCard } from '@/components/GlassCard';
 import { Particles } from '@/components/Particles';
-import { ArrowLeft, ArrowRight, Target, Key, ChevronLeft, ChevronRight, Languages, HelpCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Target, Key, ChevronLeft, ChevronRight, Languages, BookOpen, Zap, AlertTriangle } from 'lucide-react';
+import { highlightTriggers, collectAllTriggers } from '@/lib/highlightTriggers';
 import courseData from '@/data/courseDays.json';
 
-type LessonPhase = 'signals' | 'patterns' | 'test' | 'result';
+type LessonPhase = 'intro' | 'signals' | 'patterns' | 'test' | 'result';
 
 interface Signal {
   id: string;
@@ -36,6 +37,23 @@ interface Question {
   correctAnswer: string;
 }
 
+interface DayData {
+  dayNumber: number;
+  emoji: string;
+  title: string;
+  titleKo?: string;
+  titleRu?: string;
+  goal: string;
+  format: string;
+  signalsInstruction: string;
+  patternsInstruction?: string;
+  testInstruction?: string;
+  signals: Signal[];
+  patterns: Pattern[];
+  questions: Question[];
+  resultMessage?: string;
+}
+
 interface LessonScreenProps {
   dayNumber: number;
   onBack: () => void;
@@ -51,18 +69,20 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
   const { completeSignals, completePatterns, completeTest, dayProgress } = useProgress();
   const { hapticFeedback } = useTelegram();
 
-  const [phase, setPhase] = useState<LessonPhase>('signals');
+  const [phase, setPhase] = useState<LessonPhase>('intro');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [answers, setAnswers] = useState<Array<{ questionId: string; isCorrect: boolean; patternId: string }>>([]);
   const [showTranslation, setShowTranslation] = useState(false);
-  const [showExplanation, setShowExplanation] = useState(false);
 
-  const dayData = courseData.find((d: any) => d.dayNumber === dayNumber);
-  const signals: Signal[] = dayData?.signals as any || [];
-  const patterns: Pattern[] = dayData?.patterns as any || [];
-  const questions: Question[] = (dayData as any)?.questions || [];
+  const dayData = courseData.find((d: any) => d.dayNumber === dayNumber) as DayData | undefined;
+  const signals: Signal[] = dayData?.signals || [];
+  const patterns: Pattern[] = dayData?.patterns || [];
+  const questions: Question[] = dayData?.questions || [];
+
+  // Collect all triggers for highlighting
+  const allTriggers = collectAllTriggers(signals);
 
   const dp = dayProgress[dayNumber];
 
@@ -71,27 +91,24 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
       setPhase('patterns');
     } else if (dp?.patternsCompleted && !dp?.testCompleted) {
       setPhase('test');
+    } else if (!dp?.signalsCompleted) {
+      setPhase('intro');
     }
   }, [dp]);
+
+  const handleStartSignals = () => {
+    setPhase('signals');
+    setCurrentIndex(0);
+    hapticFeedback('light');
+  };
 
   const handleNextSignal = () => {
     if (currentIndex < signals.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
-      const studiedCount = dp?.signalsCompleted ? signals.length : currentIndex + 1;
-      const totalSignals = signals.length;
-
-      if (studiedCount < totalSignals) {
-        if (confirm(`⚠️ Секунду!\nТы изучил ${studiedCount}/${totalSignals} сигналов.\n\nПродолжить без изучения всех сигналов?`)) {
-          completeSignals(dayNumber);
-          setPhase('patterns');
-          setCurrentIndex(0);
-        }
-      } else {
-        completeSignals(dayNumber);
-        setPhase('patterns');
-        setCurrentIndex(0);
-      }
+      completeSignals(dayNumber);
+      setPhase('patterns');
+      setCurrentIndex(0);
     }
     hapticFeedback('light');
   };
@@ -139,10 +156,9 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     setAnswers([...answers, {
       questionId: currentQuestion.id,
       isCorrect,
-      patternId: currentQuestion.id, // Using question ID as placeholder since pattern mapping is implicit
+      patternId: currentQuestion.id,
     }]);
 
-    // Don't auto-advance if answer is wrong - let user read explanation
     if (isCorrect) {
       setTimeout(() => {
         goToNextQuestion();
@@ -153,13 +169,11 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
   const goToNextQuestion = () => {
     setShowFeedback(false);
     setSelectedAnswer(null);
-    setShowExplanation(false);
     setShowTranslation(false);
 
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
-      // Calculate results
       const correctCount = answers.filter(a => a.isCorrect).length;
       const score = Math.round((correctCount / (answers.length || 1)) * 100);
       const errors = answers
@@ -171,18 +185,17 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     }
   };
 
-  // Find the best matching signal for a question based on Korean keywords
+  // Find the best matching signal for a question
   const findMatchingSignal = (question: Question): Signal | null => {
     const questionText = question.question.toLowerCase();
 
-    // Try to match by triggers
     for (const signal of signals) {
       if (!signal.triggers) continue;
 
       for (const rawTrigger of signal.triggers) {
-        if (!rawTrigger) continue;
+        if (!rawTrigger || rawTrigger === '--') continue;
 
-        const subTriggers = rawTrigger.split(/[\/\→]/).map(t => t.toLowerCase().trim()).filter(t => t.length > 0);
+        const subTriggers = rawTrigger.split(/[\/→]/).map(t => t.toLowerCase().trim()).filter(t => t.length > 0);
 
         for (const subTrigger of subTriggers) {
           if (questionText.includes(subTrigger)) {
@@ -192,67 +205,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
       }
     }
 
-    // Fallback: return signal by index if available
-    return signals[currentIndex] || signals[0] || null;
-  };
-
-  // Find the best matching pattern for a question
-  const findMatchingPattern = (question: Question): Pattern | null => {
-    // Try to match by question words in pattern
-    for (const pattern of patterns) {
-      const patternRule = pattern.rule.toLowerCase();
-      const questionText = question.question.toLowerCase();
-
-      if (patternRule.includes(questionText)) return pattern;
-    }
-
-    return patterns[currentIndex] || patterns[0] || null;
-  };
-
-  // Generate comprehensive explanation based on signals and patterns
-  const generateExplanation = (question: Question, selectedWrongAnswer: string): string => {
-    const correctOption = question.options[question.correctAnswer as keyof typeof question.options];
-    const wrongOption = question.options[selectedWrongAnswer as keyof typeof question.options];
-
-    const matchingSignal = findMatchingSignal(question);
-    const matchingPattern = findMatchingPattern(question);
-
-    let explanation = `✅ Правильный ответ: ${question.correctAnswer}) ${correctOption}\n`;
-    explanation += `❌ Ты выбрал: ${selectedWrongAnswer}) ${wrongOption}\n\n`;
-
-    if (matchingPattern) {
-      explanation += `🔑 ПАТТЕРН "${matchingPattern.title}":\n${matchingPattern.rule}\n\n`;
-    }
-
-    if (matchingSignal) {
-      explanation += `🎯 СИГНАЛ "${matchingSignal.title}":\n${matchingSignal.reaction || ''} ${matchingSignal.trap ? `\nЛовушка: ${matchingSignal.trap}` : ''}`;
-    }
-
-    return explanation;
-  };
-
-  // Get question hint from signals - always returns something useful
-  const getQuestionHint = (question: Question): string => {
-    const matchingSignal = findMatchingSignal(question);
-    const matchingPattern = findMatchingPattern(question);
-
-    let hint = '';
-
-    if (matchingSignal) {
-      hint += `🎯 ${matchingSignal.title}\n${matchingSignal.reaction}`;
-      if (matchingSignal.trap) hint += `\nЛовушка: ${matchingSignal.trap}`;
-    }
-
-    if (matchingPattern) {
-      if (hint) hint += '\n\n';
-      hint += `🔑 ${matchingPattern.title}\n${matchingPattern.rule}`;
-    }
-
-    if (!hint) {
-      hint = '📚 Подсказка для этого вопроса пока не добавлена';
-    }
-
-    return hint;
+    return signals[0] || null;
   };
 
   const getScore = () => {
@@ -260,17 +213,122 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     return Math.round((correctCount / (answers.length || 1)) * 100);
   };
 
-  const renderSignals = () => {
-    const signal = signals[currentIndex];
-    if (!signal) return null;
+  // === INTRO PHASE ===
+  const renderIntro = () => {
+    if (!dayData) return null;
+
+    const isReviewDay = dayData.title.includes('REVIEW');
+    const hasSignals = signals.length > 0;
+    const hasPatterns = patterns.length > 0;
 
     return (
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="text-center mb-6">
+          <div className="text-6xl mb-4 animate-bounce-subtle">{dayData.emoji}</div>
+          <h1 className="text-2xl font-extrabold mb-2">
+            День {dayNumber}: {dayData.titleRu || dayData.title}
+          </h1>
+          <p className="text-muted-foreground text-sm">{dayData.titleKo}</p>
+        </div>
+
+        {/* Goal Card */}
+        <GlassCard className="mb-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shrink-0">
+              <Target className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg mb-2">🎯 Цель дня</h3>
+              <p className="text-muted-foreground leading-relaxed">{dayData.goal}</p>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* What's inside */}
+        <GlassCard className="mb-4">
+          <h3 className="font-bold text-lg mb-4">📚 Что тебя ждёт</h3>
+          <div className="space-y-3">
+            {hasSignals && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+                <Zap className="w-5 h-5 text-cyan-400" />
+                <div>
+                  <span className="font-medium text-cyan-400">{signals.length} сигналов</span>
+                  <p className="text-xs text-muted-foreground">Триггерные слова для распознавания</p>
+                </div>
+              </div>
+            )}
+            {hasPatterns && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                <Key className="w-5 h-5 text-green-400" />
+                <div>
+                  <span className="font-medium text-green-400">{patterns.length} паттернов</span>
+                  <p className="text-xs text-muted-foreground">Правила мгновенного ответа</p>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+              <BookOpen className="w-5 h-5 text-purple-400" />
+              <div>
+                <span className="font-medium text-purple-400">{questions.length} вопросов</span>
+                <p className="text-xs text-muted-foreground">Тест на закрепление</p>
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* Instruction */}
+        {dayData.signalsInstruction && (
+          <GlassCard className="mb-6 bg-primary/5 border-primary/20">
+            <p className="text-sm text-foreground leading-relaxed">
+              💡 {dayData.signalsInstruction}
+            </p>
+          </GlassCard>
+        )}
+
+        {/* Start Button */}
+        <div className="mt-auto">
+          <Button
+            variant="gradient"
+            size="lg"
+            className="w-full"
+            onClick={handleStartSignals}
+          >
+            {hasSignals ? 'Начать изучение сигналов' : 'Перейти к тесту'}
+            <ArrowRight className="w-5 h-5" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  // === SIGNALS PHASE ===
+  const renderSignals = () => {
+    const signal = signals[currentIndex];
+    if (!signal) {
+      // No signals - skip to patterns or test
+      if (patterns.length > 0) {
+        completeSignals(dayNumber);
+        setPhase('patterns');
+        setCurrentIndex(0);
+      } else {
+        completeSignals(dayNumber);
+        completePatterns(dayNumber);
+        setPhase('test');
+        setCurrentIndex(0);
+      }
+      return null;
+    }
+
+    const validTriggers = signal.triggers.filter(t => t && t.trim() !== '' && t.trim() !== '--');
+
+    return (
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Target className="w-6 h-6 text-primary" />
-            <h2 className="text-xl font-bold">{t('lesson.signals')}</h2>
+            <Target className="w-6 h-6 text-cyan-400" />
+            <h2 className="text-xl font-bold">Сигналы</h2>
           </div>
           <span className="text-sm text-muted-foreground">
             {currentIndex + 1} / {signals.length}
@@ -280,30 +338,51 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
         {/* Progress bar */}
         <div className="h-1 bg-muted rounded-full mb-6 overflow-hidden">
           <div
-            className="h-full gradient-primary transition-all duration-300"
+            className="h-full bg-cyan-400 transition-all duration-300"
             style={{ width: `${((currentIndex + 1) / signals.length) * 100}%` }}
           />
         </div>
 
         {/* Signal Card */}
-        <GlassCard className="flex-1 flex flex-col">
+        <GlassCard className="flex-1 flex flex-col overflow-hidden">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-              <Target className="w-5 h-5 text-primary-foreground" />
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center">
+              <Zap className="w-5 h-5 text-cyan-400" />
             </div>
-            <h1 className="text-xl font-bold flex-1">{signal.title}</h1>
+            <h1 className="text-lg font-bold flex-1">{signal.title}</h1>
           </div>
-          <div className="flex-1 overflow-y-auto">
-            <p className="text-gray-400 mt-2 whitespace-pre-line leading-relaxed mb-4">
-              {signal.reaction}
-            </p>
-            <p className="text-sm text-cyan-400 mt-4 font-medium">
-              💡 Триггеры: {signal.triggers.join(', ')}
-            </p>
+
+          <div className="flex-1 overflow-y-auto space-y-4">
+            {/* Triggers */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">🔍 Триггеры (ищи в вопросе):</p>
+              <div className="flex flex-wrap gap-2">
+                {validTriggers.map((trigger, idx) => (
+                  <span key={idx} className="signal-trigger-badge">
+                    {trigger}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Reaction */}
+            {signal.reaction && (
+              <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                <p className="text-xs text-green-400 mb-1 font-medium">✅ Реакция:</p>
+                <p className="text-foreground whitespace-pre-line leading-relaxed">
+                  {signal.reaction}
+                </p>
+              </div>
+            )}
+
+            {/* Trap */}
             {signal.trap && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 mt-4">
-                <p className="text-sm font-bold text-destructive mb-1">ЛОВУШКА:</p>
-                <p className="text-sm text-muted-foreground">{signal.trap}</p>
+              <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className="w-4 h-4 text-red-400" />
+                  <p className="text-xs text-red-400 font-medium">Ловушка:</p>
+                </div>
+                <p className="text-foreground">{signal.trap}</p>
               </div>
             )}
           </div>
@@ -324,7 +403,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
             className="flex-1"
             onClick={handleNextSignal}
           >
-            {currentIndex === signals.length - 1 ? t('lesson.finish') : t('lesson.next')}
+            {currentIndex === signals.length - 1 ? 'К паттернам' : 'Далее'}
             <ArrowRight className="w-5 h-5" />
           </Button>
           <Button
@@ -340,17 +419,24 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     );
   };
 
+  // === PATTERNS PHASE ===
   const renderPatterns = () => {
     const pattern = patterns[currentIndex];
-    if (!pattern) return null;
+    if (!pattern) {
+      // No patterns - skip to test
+      completePatterns(dayNumber);
+      setPhase('test');
+      setCurrentIndex(0);
+      return null;
+    }
 
     return (
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Key className="w-6 h-6 text-accent" />
-            <h2 className="text-xl font-bold">{t('lesson.patterns')}</h2>
+            <Key className="w-6 h-6 text-green-400" />
+            <h2 className="text-xl font-bold">Паттерны</h2>
           </div>
           <span className="text-sm text-muted-foreground">
             {currentIndex + 1} / {patterns.length}
@@ -360,7 +446,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
         {/* Progress bar */}
         <div className="h-1 bg-muted rounded-full mb-6 overflow-hidden">
           <div
-            className="h-full gradient-success transition-all duration-300"
+            className="h-full bg-green-400 transition-all duration-300"
             style={{ width: `${((currentIndex + 1) / patterns.length) * 100}%` }}
           />
         </div>
@@ -368,13 +454,13 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
         {/* Pattern Card */}
         <GlassCard className="flex-1 flex flex-col">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl gradient-success flex items-center justify-center">
-              <Key className="w-5 h-5 text-success-foreground" />
+            <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+              <Key className="w-5 h-5 text-green-400" />
             </div>
             <h3 className="text-lg font-bold flex-1">{pattern.title}</h3>
           </div>
           <div className="flex-1 overflow-y-auto">
-            <p className="text-muted-foreground whitespace-pre-line leading-relaxed">
+            <p className="text-foreground whitespace-pre-line leading-relaxed">
               {pattern.rule}
             </p>
           </div>
@@ -395,7 +481,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
             className="flex-1"
             onClick={handleNextPattern}
           >
-            {currentIndex === patterns.length - 1 ? t('lesson.finish') : t('lesson.next')}
+            {currentIndex === patterns.length - 1 ? 'К тесту' : 'Далее'}
             <ArrowRight className="w-5 h-5" />
           </Button>
           <Button
@@ -411,6 +497,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     );
   };
 
+  // === TEST PHASE ===
   const renderTest = () => {
     const question = questions[currentIndex];
     if (!question) {
@@ -429,19 +516,18 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     ];
 
     const isWrongAnswer = showFeedback && selectedAnswer !== question.correctAnswer;
-    const explanation = selectedAnswer ? generateExplanation(question, selectedAnswer) : '';
-    const questionHint = getQuestionHint(question);
+    const matchingSignal = findMatchingSignal(question);
 
     return (
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">{t('lesson.test')}</h2>
+          <h2 className="text-xl font-bold">Тест</h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowTranslation(!showTranslation)}
               className={`p-2 rounded-lg transition-all ${showTranslation ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}
-              title="Показать перевод"
+              title="Показать подсказку"
             >
               <Languages className="w-5 h-5" />
             </button>
@@ -459,17 +545,18 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
           />
         </div>
 
-        {/* Question Card */}
+        {/* Question Card with Trigger Highlighting */}
         <GlassCard className="mb-4">
           <p className="text-lg font-medium leading-relaxed text-foreground">
-            {question.question}
+            {highlightTriggers(question.question, allTriggers)}
           </p>
-          {showTranslation && (
+          {showTranslation && matchingSignal && (
             <div className="mt-3 pt-3 border-t border-border/50">
-              <p className="text-xs text-muted-foreground mb-2">🇷🇺 Подсказка на русском:</p>
-              <p className="text-sm text-primary whitespace-pre-line leading-relaxed">
-                {questionHint}
-              </p>
+              <p className="text-xs text-muted-foreground mb-2">💡 Сигнал:</p>
+              <p className="text-sm text-cyan-400 font-medium">{matchingSignal.title}</p>
+              {matchingSignal.reaction && (
+                <p className="text-sm text-muted-foreground mt-1">{matchingSignal.reaction}</p>
+              )}
             </div>
           )}
         </GlassCard>
@@ -519,16 +606,26 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
           })}
         </div>
 
-        {/* Explanation for wrong answer */}
+        {/* Feedback for wrong answer */}
         {isWrongAnswer && (
           <div className="mt-4 animate-in slide-in-from-bottom duration-300">
-            <div className="bg-gray-800 p-4 rounded-lg mt-3">
+            <div className="bg-gray-800 p-4 rounded-lg">
               <p className="text-red-400 text-lg font-bold">❌ Неправильно</p>
-              <p className="text-green-400 mt-1">✅ Ответ: {question.correctAnswer}) {question.options[question.correctAnswer as keyof typeof question.options]}</p>
-              {findMatchingSignal(question) && (
-                <p className="text-gray-300 text-sm mt-2 line-clamp-2">
-                  💡 {findMatchingSignal(question)?.title}: {findMatchingSignal(question)?.reaction}
-                </p>
+              <p className="text-green-400 mt-1">
+                ✅ Ответ: {question.correctAnswer}) {question.options[question.correctAnswer as keyof typeof question.options]}
+              </p>
+              {matchingSignal && (
+                <div className="mt-3 pt-3 border-t border-gray-700">
+                  <p className="text-cyan-400 text-sm font-medium">
+                    🎯 {matchingSignal.title}
+                  </p>
+                  {matchingSignal.reaction && (
+                    <p className="text-gray-300 text-sm mt-1">{matchingSignal.reaction}</p>
+                  )}
+                  {matchingSignal.trap && (
+                    <p className="text-red-300 text-sm mt-1">⚠️ {matchingSignal.trap}</p>
+                  )}
+                </div>
               )}
             </div>
             <Button
@@ -546,6 +643,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     );
   };
 
+  // === RESULT PHASE ===
   const renderResult = () => {
     const score = dayProgress[dayNumber]?.testScore || getScore();
     const isGood = score >= 70;
@@ -556,16 +654,18 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
           {isGood ? '🎉' : '💪'}
         </div>
         <h1 className="text-3xl font-extrabold mb-2">
-          {isGood ? t('result.excellent') : t('result.needPractice')}
+          {isGood ? 'Отлично!' : 'Нужно повторить'}
         </h1>
         <p className="text-5xl font-extrabold gradient-text mb-4">
           {score}%
         </p>
-        <p className="text-lg text-muted-foreground mb-8">
-          {t('result.correct')}
+        <p className="text-lg text-muted-foreground mb-4">
+          Правильных ответов
         </p>
         <p className="text-muted-foreground mb-8 max-w-xs">
-          {isGood ? t('result.moving') : t('result.seen')}
+          {isGood
+            ? 'День завершён! Переходи к следующему дню.'
+            : dayData?.resultMessage || 'Пересмотри сигналы и попробуй снова.'}
         </p>
 
         <div className="w-full max-w-sm space-y-3">
@@ -576,7 +676,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
               className="w-full"
               onClick={onComplete}
             >
-              {t('result.nextDay')}
+              Следующий день
               <ArrowRight className="w-5 h-5" />
             </Button>
           )}
@@ -585,12 +685,12 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
             size="lg"
             className="w-full"
             onClick={() => {
-              setPhase('signals');
+              setPhase('intro');
               setCurrentIndex(0);
               setAnswers([]);
             }}
           >
-            {t('result.repeat')}
+            Повторить урок
           </Button>
         </div>
       </div>
@@ -611,15 +711,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
 
       {/* Content */}
       <div className="flex-1 flex flex-col relative z-10">
-        {dayNumber === 1 && phase === 'signals' && currentIndex === 0 && (
-          <div className="bg-purple-900/50 border border-purple-500/30 p-4 rounded-lg mb-6 animate-in fade-in slide-in-from-top duration-500">
-            <p className="text-white font-medium">
-              📚 Вводный урок (3 вопроса)
-              <br />
-              <span className="text-sm text-purple-200 opacity-80">Познакомься с методикой! Мы научим тебя находить правильные ответы быстрее.</span>
-            </p>
-          </div>
-        )}
+        {phase === 'intro' && renderIntro()}
         {phase === 'signals' && renderSignals()}
         {phase === 'patterns' && renderPatterns()}
         {phase === 'test' && renderTest()}
