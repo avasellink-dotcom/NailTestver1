@@ -13,18 +13,8 @@ interface TrainerScreenProps {
   onSelectMode: (mode: string) => void;
 }
 
-interface Question {
-  id: string;
-  question: string;
-  options: {
-    A: string;
-    B: string;
-    C: string;
-    D: string;
-  };
-  correctAnswer: string;
-  dayNumber?: number;
-}
+import { Question, DayData } from '@/types/course';
+import { findMatchingSignal as findSignalInDay } from '@/lib/courseUtils';
 
 type TrainerPhase = 'menu' | 'quiz' | 'result';
 
@@ -149,34 +139,14 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
   // Find the best matching signal for a question
   const findMatchingSignal = (questionText: string, dayNumber: number): { signal: any; trigger: string | null } | null => {
     // dayNumber is crucial for finding the correct signals
-    const currentDay = courseData.find((d: any) => d.dayNumber === dayNumber);
+    const currentDay = courseData.find((d: any) => d.dayNumber === dayNumber) as DayData | undefined;
 
-    if (!currentDay || !currentDay.signals) {
-      return null;
+    if (!currentDay) return null;
+
+    const match = findSignalInDay(questionText, currentDay);
+    if (match) {
+      return { signal: match.signal, trigger: match.trigger };
     }
-
-    // Normalize question
-    const normalizedQuestion = questionText.toLowerCase().trim();
-
-    // Iterate through signals
-    for (const signal of currentDay.signals) {
-      if (!signal.triggers) continue;
-
-      // Check each trigger string which might contain multiple sub-triggers (e.g. "A / B" or "A → B")
-      for (const rawTrigger of signal.triggers) {
-        if (!rawTrigger) continue;
-
-        // Split by separators commonly used in the new all_days.json
-        const subTriggers = rawTrigger.split(/[\/\→]/).map(t => t.toLowerCase().trim()).filter(t => t.length > 0);
-
-        for (const subTrigger of subTriggers) {
-          if (normalizedQuestion.includes(subTrigger)) {
-            return { signal, trigger: subTrigger };
-          }
-        }
-      }
-    }
-
     return null;
   };
 
@@ -480,6 +450,12 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
                   <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">
                     {expData.matchingSignal.reaction}
                   </p>
+                  {expData.matchingSignal.visualHint && (
+                    <div className="mt-2 p-3 rounded bg-yellow-500/10 border border-yellow-500/20">
+                      <p className="text-xs text-yellow-400 mb-1 font-bold">💡 Запомни:</p>
+                      <p className="text-sm text-yellow-200 whitespace-pre-line">{expData.matchingSignal.visualHint}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

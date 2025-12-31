@@ -11,48 +11,8 @@ import courseData from '@/data/courseDays.json';
 
 type LessonPhase = 'intro' | 'signals' | 'patterns' | 'test' | 'result';
 
-interface Signal {
-  id: string;
-  title: string;
-  triggers: string[];
-  reaction: string;
-  trap: string | null;
-}
-
-interface Pattern {
-  id: string;
-  title: string;
-  rule: string;
-}
-
-interface Question {
-  id: string;
-  question: string;
-  options: {
-    A: string;
-    B: string;
-    C: string;
-    D: string;
-  };
-  correctAnswer: string;
-}
-
-interface DayData {
-  dayNumber: number;
-  emoji: string;
-  title: string;
-  titleKo?: string;
-  titleRu?: string;
-  goal: string;
-  format: string;
-  signalsInstruction: string;
-  patternsInstruction?: string;
-  testInstruction?: string;
-  signals: Signal[];
-  patterns: Pattern[];
-  questions: Question[];
-  resultMessage?: string;
-}
+import { Signal, Pattern, Question, DayData } from '@/types/course';
+import { findMatchingSignal } from '@/lib/courseUtils';
 
 interface LessonScreenProps {
   dayNumber: number;
@@ -185,28 +145,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     }
   };
 
-  // Find the best matching signal for a question
-  const findMatchingSignal = (question: Question): Signal | null => {
-    const questionText = question.question.toLowerCase();
 
-    for (const signal of signals) {
-      if (!signal.triggers) continue;
-
-      for (const rawTrigger of signal.triggers) {
-        if (!rawTrigger || rawTrigger === '--') continue;
-
-        const subTriggers = rawTrigger.split(/[\/→]/).map(t => t.toLowerCase().trim()).filter(t => t.length > 0);
-
-        for (const subTrigger of subTriggers) {
-          if (questionText.includes(subTrigger)) {
-            return signal;
-          }
-        }
-      }
-    }
-
-    return signals[0] || null;
-  };
 
   const getScore = () => {
     const correctCount = answers.filter(a => a.isCorrect).length;
@@ -385,6 +324,16 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
                 <p className="text-foreground">{signal.trap}</p>
               </div>
             )}
+
+            {/* Visual Hint */}
+            {signal.visualHint && (
+              <div className="mt-4 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                <p className="text-xs text-yellow-400 mb-1 font-medium">💡 Визуальная подсказка:</p>
+                <p className="text-foreground whitespace-pre-line leading-relaxed font-medium">
+                  {signal.visualHint}
+                </p>
+              </div>
+            )}
           </div>
         </GlassCard>
 
@@ -516,7 +465,8 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
     ];
 
     const isWrongAnswer = showFeedback && selectedAnswer !== question.correctAnswer;
-    const matchingSignal = findMatchingSignal(question);
+    const match = findMatchingSignal(question.question, dayData);
+    const matchingSignal = match?.signal;
 
     return (
       <div className="flex-1 flex flex-col">
@@ -624,6 +574,12 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
                   )}
                   {matchingSignal.trap && (
                     <p className="text-red-300 text-sm mt-1">⚠️ {matchingSignal.trap}</p>
+                  )}
+                  {matchingSignal.visualHint && (
+                    <div className="mt-2 p-2 rounded bg-yellow-500/10 border border-yellow-500/20">
+                      <p className="text-xs text-yellow-400 mb-0.5 font-bold">💡 Запомни:</p>
+                      <p className="text-sm text-yellow-200 whitespace-pre-line">{matchingSignal.visualHint}</p>
+                    </div>
                   )}
                 </div>
               )}
