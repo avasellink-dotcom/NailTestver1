@@ -31,18 +31,17 @@ export const ActivationScreen: React.FC<ActivationScreenProps> = ({ onActivate }
 
         try {
             // 1. Check if code exists and is not used
-            const { data, error: fetchError } = await supabase
+            const { data: codeData, error: fetchError } = await supabase
                 .from('activation_codes')
                 .select('*')
-                .eq('code', code.trim().toUpperCase())
-                .single();
+                .ilike('code', code.trim())
+                .eq('is_used', false)
+                .maybeSingle();
 
-            if (fetchError || !data) {
+            if (fetchError) throw fetchError;
+            
+            if (!codeData) {
                 throw new Error('Некорректный или уже использованный код');
-            }
-
-            if (data.is_used) {
-                throw new Error('Этот код уже был активирован');
             }
 
             // 2. Activate the code
@@ -53,7 +52,7 @@ export const ActivationScreen: React.FC<ActivationScreenProps> = ({ onActivate }
                     telegram_id: user?.id || null,
                     activated_at: new Date().toISOString(),
                 })
-                .eq('id', data.id);
+                .eq('id', codeData.id);
 
             if (updateError) {
                 throw new Error('Ошибка активации. Попробуйте позже.');
@@ -99,8 +98,8 @@ export const ActivationScreen: React.FC<ActivationScreenProps> = ({ onActivate }
                                 <input
                                     type="text"
                                     value={code}
-                                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                                    placeholder="NAIL-XXXX-XXXX"
+                                    onChange={(e) => setCode(e.target.value)}
+                                    placeholder="Введите код"
                                     disabled={isLoading}
                                     className="w-full h-14 pl-4 pr-4 rounded-xl bg-secondary border border-border text-foreground text-lg placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono transition-all"
                                 />
