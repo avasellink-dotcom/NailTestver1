@@ -55,7 +55,8 @@ export const ActivationScreen: React.FC<ActivationScreenProps> = ({ onActivate }
                 .eq('id', codeData.id);
 
             if (updateError) {
-                throw new Error('Ошибка активации. Попробуйте позже.');
+                console.error('Supabase update error:', updateError);
+                throw new Error(`Ошибка активации: ${updateError.message}`);
             }
 
             // 3. Success
