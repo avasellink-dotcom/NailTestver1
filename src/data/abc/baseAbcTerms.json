@@ -1,0 +1,72 @@
+[
+  {
+    "id": "cause",
+    "term": "원인",
+    "translation": "причина",
+    "category": "reason",
+    "description": "Что ВЫЗЫВАЕТ проблему/явление",
+    "hint": "Ищи в вопросах про причины болезней, проблем",
+    "isBase": true
+  },
+  {
+    "id": "result",
+    "term": "결과",
+    "translation": "результат",
+    "category": "indicator",
+    "description": "Что ПОЛУЧИЛОСЬ в итоге",
+    "hint": "Часто противопоставляется 원인",
+    "isBase": true
+  },
+  {
+    "id": "indicator",
+    "term": "지표",
+    "translation": "показатель",
+    "category": "indicator",
+    "description": "То, что измеряем/считаем",
+    "hint": "출생률, 사망률 — это 지표",
+    "isBase": true
+  },
+  {
+    "id": "level",
+    "term": "수준",
+    "translation": "уровень",
+    "category": "indicator",
+    "description": "Высокий/низкий уровень",
+    "hint": "건강 수준 = уровень здоровья",
+    "isBase": true
+  },
+  {
+    "id": "denominator",
+    "term": "분모",
+    "translation": "знаменатель",
+    "category": "calculation",
+    "description": "Нижняя часть дроби",
+    "hint": "В формулах — то, НА ЧТО делим",
+    "isBase": true
+  },
+  {
+    "id": "numerator",
+    "term": "분자",
+    "translation": "числитель",
+    "category": "calculation",
+    "description": "Верхняя часть дроби",
+    "hint": "В формулах — то, ЧТО делим",
+    "isBase": true
+  },
+  {
+    "id": "high",
+    "term": "높다",
+    "translation": "высокий",
+    "category": "other",
+    "description": "Высокий (уровень, показатель)",
+    "isBase": true
+  },
+  {
+    "id": "low",
+    "term": "낮다",
+    "translation": "низкий",
+    "category": "other",
+    "description": "Низкий (уровень, показатель)",
+    "isBase": true
+  }
+]

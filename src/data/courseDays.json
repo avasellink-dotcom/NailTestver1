@@ -30,7 +30,8 @@
         ],
         "reaction": "육체적 · 정신적 · 사회적으로 완전한 안녕 상태",
         "trap": null,
-        "visualHint": "🧘‍♂️💪🤝 (Mental + Physical + Social) = 3 pillars of Health"
+        "visualHint": "🧘‍♂️💪🤝 (Mental + Physical + Social) = 3 pillars of Health",
+        "abcTermId": "day1_health"
       },
       {
         "id": "signal_3",
@@ -132,7 +133,7 @@
         "title": "인구구조 (тип возрастной пирамиды)",
         "triggers": [
           "인구구조",
-          "피라미드형 / 종형 / 항아리형",
+          "피라미드형 / 종형 / 항а리형",
           "고령화 / 저출산",
           "피라미드형 → 출생률 높음",
           "종형 → 안정",
@@ -141,7 +142,8 @@
         ],
         "reaction": "",
         "trap": null,
-        "visualHint": "피라미드형 = 🔺👶 (треугольник + младенец = много детей внизу)\n항아리형 = 🏺👴 (кувшин = старики наверху)"
+        "visualHint": "피라미д형 = 🔺👶 (треугольник + младенец = много детей внизу)\n항아리형 = 🏺👴 (кувшин = старики наверху)",
+        "abcTermId": "day2_pop_structure"
       },
       {
         "id": "signal_2",
@@ -154,7 +156,8 @@
         ],
         "reaction": "인구지표 = 출생, 사망, 수명, 이동\n질병 치료 = 의료 지표 (인구X)",
         "trap": "치료율 / 수술 건수 — НЕ демография",
-        "visualHint": "📊👥 (Chart + People) = Demography\n🩺💊 (Stethoscope + Pill) ❌ = Medical"
+        "visualHint": "📊👥 (Chart + People) = Demography\n🩺💊 (Stethoscope + Pill) ❌ = Medical",
+        "abcTermId": "base_indicator"
       },
       {
         "id": "signal_2_formula",
@@ -168,7 +171,8 @@
           "--"
         ],
         "reaction": "- 출생률 = (출생아 수 ÷ 연평균 인구) × 1,000\n- 사망률 = (사망자 수 ÷ 연평균 인구) × 1,000",
-        "trap": "전체 인구 / 100명 — это ЛОВУШКА (нужно 연평균 и 1,000)"
+        "trap": "전체 인구 / 100명 — это ЛОВУШКА (нужно 연평균 и 1,000)",
+        "abcTermId": "base_calculation"
       },
       {
         "id": "signal_3",
@@ -192,7 +196,8 @@
           "--"
         ],
         "reaction": "",
-        "trap": null
+        "trap": null,
+        "abcTermId": "day1_life_expectancy"
       },
       {
         "id": "signal_5",

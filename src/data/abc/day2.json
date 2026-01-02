@@ -1,0 +1,54 @@
+{
+    "baseMarkers": [
+        "base_cause",
+        "base_result",
+        "base_indicator",
+        "base_calculation"
+    ],
+    "themeTerms": [
+        {
+            "id": "day2_pop_structure",
+            "term": "인구구조",
+            "translation": "Возрастная структура населения",
+            "category": "indicator"
+        },
+        {
+            "id": "day2_pyramid",
+            "term": "피라미드형",
+            "translation": "Пирамида (тип структуры)",
+            "category": "other",
+            "hint": "Много детей, высокая рождаемость."
+        },
+        {
+            "id": "day2_bell",
+            "term": "종형",
+            "translation": "Колокол (стабильное население)",
+            "category": "other"
+        },
+        {
+            "id": "day2_urn",
+            "term": "항아리형",
+            "translation": "Кувшин (старение населения)",
+            "category": "other",
+            "hint": "Мало детей, много стариков."
+        },
+        {
+            "id": "day2_youth",
+            "term": "유소년",
+            "translation": "Дети (0-14 лет)",
+            "category": "indicator"
+        },
+        {
+            "id": "day2_elderly",
+            "term": "노년",
+            "translation": "Пожилые (65+)",
+            "category": "indicator"
+        },
+        {
+            "id": "day2_aging",
+            "term": "고령화",
+            "translation": "Старение населения",
+            "category": "change"
+        }
+    ]
+}

@@ -9,10 +9,13 @@ import { ArrowLeft, ArrowRight, Target, Key, ChevronLeft, ChevronRight, Language
 import { highlightTriggers, collectAllTriggers } from '@/lib/highlightTriggers';
 import courseData from '@/data/courseDays.json';
 
-type LessonPhase = 'intro' | 'signals' | 'patterns' | 'test' | 'result';
+type LessonPhase = 'abc' | 'intro' | 'signals' | 'patterns' | 'test' | 'result';
 
 import { Signal, Pattern, Question, DayData } from '@/types/course';
 import { findMatchingSignal } from '@/lib/courseUtils';
+import { ABCTrainer } from '@/components/abc';
+import day1AbcData from '@/data/abc/day1.json';
+import day1MiniQuiz from '@/data/abc/day1MiniQuiz.json';
 
 interface LessonScreenProps {
   dayNumber: number;
@@ -29,7 +32,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
   const { completeSignals, completePatterns, completeTest, dayProgress } = useProgress();
   const { hapticFeedback } = useTelegram();
 
-  const [phase, setPhase] = useState<LessonPhase>('intro');
+  const [phase, setPhase] = useState<LessonPhase>('abc');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -45,9 +48,12 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
   const allTriggers = collectAllTriggers(signals);
 
   const dp = dayProgress[dayNumber];
+  const testUnlocked = dp?.testUnlocked || false;
 
   useEffect(() => {
-    if (dp?.signalsCompleted && !dp?.patternsCompleted) {
+    if (!dp?.abcCompleted) {
+      setPhase('abc');
+    } else if (dp?.signalsCompleted && !dp?.patternsCompleted) {
       setPhase('patterns');
     } else if (dp?.patternsCompleted && !dp?.testCompleted) {
       setPhase('test');
@@ -667,6 +673,15 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
 
       {/* Content */}
       <div className="flex-1 flex flex-col relative z-10">
+        {phase === 'abc' && (
+          <ABCTrainer
+            dayNumber={dayNumber}
+            dayTerms={day1AbcData.themeTerms as any}
+            quizQuestions={day1MiniQuiz}
+            onComplete={() => setPhase('intro')}
+            onBack={onBack}
+          />
+        )}
         {phase === 'intro' && renderIntro()}
         {phase === 'signals' && renderSignals()}
         {phase === 'patterns' && renderPatterns()}

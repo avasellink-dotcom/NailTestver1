@@ -1,3 +1,20 @@
+export type AbcCategory = 'reason' | 'indicator' | 'change' | 'calculation' | 'other';
+
+export interface AbcTerm {
+    id: string;
+    term: string;
+    translation: string;
+    category: AbcCategory;
+    description?: string;
+    hint?: string;
+    isBase?: boolean;
+}
+
+export interface DayAbcData {
+    baseMarkers: string[];
+    themeTerms: AbcTerm[];
+}
+
 export interface Signal {
     id: string;
     title: string;
@@ -5,6 +22,7 @@ export interface Signal {
     reaction: string;
     trap: string | null;
     visualHint?: string;
+    abcTermId?: string; // Link to ABC term
 }
 
 export interface Pattern {
@@ -24,7 +42,7 @@ export interface Question {
         D: string;
     };
     correctAnswer: string;
-    dayNumber?: number; // Optional as it might be enriched later
+    dayNumber?: number;
 }
 
 export interface DayData {

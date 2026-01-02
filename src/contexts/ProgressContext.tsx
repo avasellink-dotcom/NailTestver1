@@ -19,6 +19,9 @@ interface UserProgress {
 }
 
 interface DayProgress {
+  abcCompleted: boolean;
+  abcScore: number;
+  testUnlocked: boolean;
   signalsCompleted: boolean;
   patternsCompleted: boolean;
   testCompleted: boolean;
@@ -30,6 +33,7 @@ interface ProgressContextType {
   dayProgress: Record<number, DayProgress>;
   setCurrentDay: (day: number) => void;
   completeDay: (dayNumber: number) => void;
+  completeAbc: (dayNumber: number, score: number) => void;
   completeSignals: (dayNumber: number) => void;
   completePatterns: (dayNumber: number) => void;
   completeTest: (dayNumber: number, score: number, errors: Array<{ questionId: string; patternId: string }>) => void;
@@ -83,10 +87,26 @@ export const ProgressProvider: React.FC<{ children: ReactNode }> = ({ children }
   const completeDay = (dayNumber: number) => {
     setProgress(prev => ({
       ...prev,
-      completedDays: prev.completedDays.includes(dayNumber) 
-        ? prev.completedDays 
+      completedDays: prev.completedDays.includes(dayNumber)
+        ? prev.completedDays
         : [...prev.completedDays, dayNumber],
       currentDay: Math.max(prev.currentDay, dayNumber + 1),
+    }));
+  };
+
+  const completeAbc = (dayNumber: number, score: number) => {
+    setDayProgress(prev => ({
+      ...prev,
+      [dayNumber]: {
+        ...prev[dayNumber],
+        abcCompleted: true,
+        abcScore: score,
+        testUnlocked: score >= 0.7,
+        signalsCompleted: prev[dayNumber]?.signalsCompleted || false,
+        patternsCompleted: prev[dayNumber]?.patternsCompleted || false,
+        testCompleted: prev[dayNumber]?.testCompleted || false,
+        testScore: prev[dayNumber]?.testScore || null,
+      },
     }));
   };
 
@@ -95,6 +115,9 @@ export const ProgressProvider: React.FC<{ children: ReactNode }> = ({ children }
       ...prev,
       [dayNumber]: {
         ...prev[dayNumber],
+        abcCompleted: prev[dayNumber]?.abcCompleted || false,
+        abcScore: prev[dayNumber]?.abcScore || 0,
+        testUnlocked: prev[dayNumber]?.testUnlocked || false,
         signalsCompleted: true,
         patternsCompleted: prev[dayNumber]?.patternsCompleted || false,
         testCompleted: prev[dayNumber]?.testCompleted || false,
@@ -108,6 +131,9 @@ export const ProgressProvider: React.FC<{ children: ReactNode }> = ({ children }
       ...prev,
       [dayNumber]: {
         ...prev[dayNumber],
+        abcCompleted: prev[dayNumber]?.abcCompleted || false,
+        abcScore: prev[dayNumber]?.abcScore || 0,
+        testUnlocked: prev[dayNumber]?.testUnlocked || false,
         signalsCompleted: prev[dayNumber]?.signalsCompleted || false,
         patternsCompleted: true,
         testCompleted: prev[dayNumber]?.testCompleted || false,
@@ -118,7 +144,7 @@ export const ProgressProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const completeTest = (dayNumber: number, score: number, errors: Array<{ questionId: string; patternId: string }>) => {
     const newPatternStats = { ...progress.patternStats };
-    
+
     errors.forEach(error => {
       if (!newPatternStats[error.patternId]) {
         newPatternStats[error.patternId] = { correct: 0, wrong: 0 };
@@ -129,6 +155,10 @@ export const ProgressProvider: React.FC<{ children: ReactNode }> = ({ children }
     setDayProgress(prev => ({
       ...prev,
       [dayNumber]: {
+        ...prev[dayNumber],
+        abcCompleted: prev[dayNumber]?.abcCompleted || true,
+        abcScore: prev[dayNumber]?.abcScore || 1,
+        testUnlocked: true,
         signalsCompleted: true,
         patternsCompleted: true,
         testCompleted: true,
@@ -197,6 +227,7 @@ export const ProgressProvider: React.FC<{ children: ReactNode }> = ({ children }
         dayProgress,
         setCurrentDay,
         completeDay,
+        completeAbc,
         completeSignals,
         completePatterns,
         completeTest,

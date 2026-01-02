@@ -1,0 +1,80 @@
+{
+    "dayNumber": 1,
+    "theme": "Показатели здоровья",
+    "baseMarkers": [
+        "cause",
+        "result",
+        "indicator",
+        "level"
+    ],
+    "themeTerms": [
+        {
+            "id": "birthRate",
+            "term": "출생률",
+            "translation": "рождаемость",
+            "category": "indicator",
+            "description": "Демографический показатель",
+            "hint": "Формула: 출생아 수 ÷ 연평균 인구 × 1000. Часто спрашивают про 분모!"
+        },
+        {
+            "id": "deathRate",
+            "term": "사망률",
+            "translation": "смертность",
+            "category": "indicator",
+            "hint": "Аналогично 출생률, делим на 연평균 인구"
+        },
+        {
+            "id": "lifeExpectancy",
+            "term": "기대수명",
+            "translation": "продолжительность жизни",
+            "category": "indicator",
+            "hint": "Это РЕЗУЛЬТАТ (결과), не причина! Показатель качества жизни"
+        },
+        {
+            "id": "infantMortality",
+            "term": "영아사망률",
+            "translation": "младенческая смертность",
+            "category": "indicator",
+            "hint": "ОСОБЕННОСТЬ: делим на 출생아 수 (не на 연평균 인구!)"
+        },
+        {
+            "id": "health",
+            "term": "건강",
+            "translation": "здоровье",
+            "category": "other"
+        },
+        {
+            "id": "disease",
+            "term": "질병",
+            "translation": "болезнь",
+            "category": "other"
+        },
+        {
+            "id": "avgPopulation",
+            "term": "연평균 인구",
+            "translation": "среднегодовое население",
+            "category": "calculation",
+            "hint": "Знаменатель в большинстве формул 률"
+        },
+        {
+            "id": "births",
+            "term": "출생아 수",
+            "translation": "число родившихся",
+            "category": "calculation",
+            "hint": "Числитель в 출생률, знаменатель в 영아사망률"
+        },
+        {
+            "id": "infant",
+            "term": "영아",
+            "translation": "младенец",
+            "category": "other",
+            "description": "Ребёнок до 1 года"
+        },
+        {
+            "id": "death",
+            "term": "사망",
+            "translation": "смерть",
+            "category": "other"
+        }
+    ]
+}
