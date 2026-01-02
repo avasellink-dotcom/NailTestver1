@@ -736,6 +736,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
       <div className="flex-1 flex flex-col relative z-10">
         {phase === 'abc' && (
           <ABCTrainer
+            key={dayNumber}
             dayNumber={dayNumber}
             dayTerms={(abcDataMap[dayNumber]?.themeTerms || day1AbcData.themeTerms) as any}
             quizQuestions={quizDataMap[dayNumber] || day1MiniQuiz}
