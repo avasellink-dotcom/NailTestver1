@@ -1,0 +1,48 @@
+{
+    "baseMarkers": [
+        "base_cause",
+        "base_result"
+    ],
+    "themeTerms": [
+        {
+            "id": "day3_agent",
+            "term": "병원체",
+            "translation": "Возбудитель (Agent)",
+            "category": "cause",
+            "hint": "Вирус, бактерия — причина болезни."
+        },
+        {
+            "id": "day3_host",
+            "term": "숙주",
+            "translation": "Хозяин (Host)",
+            "category": "other",
+            "hint": "Человек или животное, в которого попал микроб."
+        },
+        {
+            "id": "day3_environment",
+            "term": "환경",
+            "translation": "Окружающая среда (Environment)",
+            "category": "other"
+        },
+        {
+            "id": "day3_infectious",
+            "term": "감염병",
+            "translation": "Инфекционная болезнь",
+            "category": "result"
+        },
+        {
+            "id": "day3_non_infectious",
+            "term": "비감염병",
+            "translation": "Неинфекционная болезнь",
+            "category": "result",
+            "hint": "Рак, диабет, гипертония."
+        },
+        {
+            "id": "day3_incubation",
+            "term": "잠복기",
+            "translation": "Инкубационный период",
+            "category": "process",
+            "hint": "Время от заражения до появления симптомов."
+        }
+    ]
+}
