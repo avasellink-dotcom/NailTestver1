@@ -9,7 +9,7 @@ import { LessonScreen } from '@/components/screens/LessonScreen';
 import { TrainerScreen } from '@/components/screens/TrainerScreen';
 import { ActivationScreen } from '@/components/screens/ActivationScreen';
 import { TutorialScreen } from '@/components/screens/TutorialScreen';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
 
 type Screen = 'onboarding' | 'home' | 'dayList' | 'lesson' | 'trainer' | 'errors' | 'activation' | 'tutorial';
@@ -45,7 +45,7 @@ const AppContent: React.FC = () => {
       }
 
       // 4. Check Supabase by telegram_id
-      if (user?.id) {
+      if (user?.id && isSupabaseConfigured) {
         try {
           const { data, error } = await supabase
             .from('activation_codes')

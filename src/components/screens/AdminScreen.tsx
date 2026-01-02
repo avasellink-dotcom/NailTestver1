@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, ActivationCode } from '@/lib/supabase';
+import { supabase, ActivationCode, isSupabaseConfigured } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { GlassCard } from '@/components/GlassCard';
 import { Copy, Check, RefreshCw, Loader2, LogOut, Plus, ShieldCheck } from 'lucide-react';
@@ -24,6 +24,7 @@ export const AdminScreen: React.FC = () => {
     };
 
     const fetchCodes = async () => {
+        if (!isSupabaseConfigured) return;
         setIsLoading(true);
         try {
             const { data, error } = await supabase
@@ -41,6 +42,10 @@ export const AdminScreen: React.FC = () => {
     };
 
     const generateCode = async () => {
+        if (!isSupabaseConfigured) {
+            toast.error('Supabase не настроен. Проверьте переменные окружения.');
+            return;
+        }
         setIsGenerating(true);
         try {
             // Format: NAIL-XXXX-XXXX

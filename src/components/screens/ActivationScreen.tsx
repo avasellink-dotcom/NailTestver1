@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { GlassCard } from '@/components/GlassCard';
 import { Particles } from '@/components/Particles';
 import { Key, AlertCircle, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useTelegram } from '@/hooks/useTelegram';
 
 interface ActivationScreenProps {
@@ -19,6 +19,11 @@ export const ActivationScreen: React.FC<ActivationScreenProps> = ({ onActivate }
     const [error, setError] = useState('');
 
     const handleActivate = async () => {
+        if (!isSupabaseConfigured) {
+            setError('Система активации временно недоступна (ошибка конфигурации)');
+            setIsLoading(false);
+            return;
+        }
         if (!code.trim()) return;
 
         setIsLoading(true);
