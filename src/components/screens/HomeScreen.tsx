@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useProgress } from '@/contexts/ProgressContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { Button } from '@/components/ui/button';
 import { GlassCard } from '@/components/GlassCard';
 import { ProgressRing } from '@/components/ProgressRing';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { Particles } from '@/components/Particles';
 import { PaymentModal } from '@/components/PaymentModal';
-import { ArrowRight, Dumbbell, RotateCcw, Trophy, Flame, Target, HelpCircle } from 'lucide-react';
+import { ArrowRight, Dumbbell, RotateCcw, Trophy, Flame, Target, HelpCircle, Type } from 'lucide-react';
 import courseData from '@/data/courseDays.json';
 
 // Import day images
@@ -32,6 +33,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const { t } = useLanguage();
   const { progress, dayProgress, isDayAvailable } = useProgress();
+  const { settings, toggleAccessibilityMode } = useSettings();
   const [showPayment, setShowPayment] = useState(false);
 
   const currentDay = progress.currentDay;
@@ -86,6 +88,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </h1>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={toggleAccessibilityMode}
+              className={`p-2 rounded-lg transition-colors ${settings.isAccessibilityMode ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'}`}
+              title="Крупный шрифт"
+            >
+              <Type className="w-5 h-5" />
+            </button>
             <button
               onClick={onTutorial}
               className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
