@@ -57,10 +57,10 @@ export const AdminScreen: React.FC = () => {
                 is_used: false
             };
 
-            // Insert into database
+            // Insert into database - use array syntax for better compatibility
             const { data, error } = await supabase
                 .from('activation_codes')
-                .insert(insertData)
+                .insert([insertData])
                 .select()
                 .single();
 
