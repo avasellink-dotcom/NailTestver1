@@ -29,7 +29,10 @@ export const ActivationScreen: React.FC<ActivationScreenProps> = ({ onActivate }
 
         try {
             // 1. First, check hardcoded codes via ProgressContext
-            if (activatePremium(sanitizedCode)) {
+            // Strip dashes for checking secret codes as well
+            const strippedCode = sanitizedCode.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+            
+            if (activatePremium(strippedCode) || activatePremium(sanitizedCode.toUpperCase())) {
                 hapticFeedback('success');
                 localStorage.setItem('app_activated', 'true');
                 if (user?.id) {
@@ -44,14 +47,15 @@ export const ActivationScreen: React.FC<ActivationScreenProps> = ({ onActivate }
                 throw new Error('Система активации недоступна (ошибка конфигурации)');
             }
 
-            // Search for the code directly (case-insensitive)
+            // Extremely robust search: try multiple variations
+            // Variation 1: Direct match with dashes/case as provided
             let { data: codeData, error: fetchError } = await supabase
                 .from('activation_codes')
                 .select('*')
                 .ilike('code', sanitizedCode)
                 .maybeSingle();
 
-            // If not found, try without dashes just in case
+            // Variation 2: Match without dashes if variation 1 failed
             if (!codeData && !fetchError) {
                 const noDashes = sanitizedCode.replace(/-/g, '');
                 if (noDashes !== sanitizedCode) {
@@ -64,15 +68,35 @@ export const ActivationScreen: React.FC<ActivationScreenProps> = ({ onActivate }
                     fetchError = retryError;
                 }
             }
+            
+            // Variation 3: Match the provided input against something that MIGHT have dashes in DB
+            // (e.g. user typed NAIL123, DB has NAIL-123)
+            if (!codeData && !fetchError && sanitizedCode.length >= 10 && !sanitizedCode.includes('-')) {
+                if (sanitizedCode.toUpperCase().startsWith('NAIL')) {
+                   const part1 = sanitizedCode.substring(0, 4);
+                   const part2 = sanitizedCode.substring(4, 8);
+                   const part3 = sanitizedCode.substring(8);
+                   const reconstructed = `${part1}-${part2}-${part3}`;
+                   const { data: retry3Data, error: retry3Error } = await supabase
+                        .from('activation_codes')
+                        .select('*')
+                        .ilike('code', reconstructed)
+                        .maybeSingle();
+                    if (retry3Data) {
+                        codeData = retry3Data;
+                        fetchError = retry3Error;
+                    }
+                }
+            }
 
             if (fetchError) throw fetchError;
             
             if (!codeData) {
-                throw new Error('Некорректный код');
+                throw new Error('Код не найден. Пожалуйста, проверьте правильность ввода.');
             }
 
             if (codeData.is_used) {
-                throw new Error('Этот код уже был активирован');
+                throw new Error('Этот код уже был использован ранее.');
             }
 
             // 3. Activate the code in Supabase
@@ -176,9 +200,18 @@ export const ActivationScreen: React.FC<ActivationScreenProps> = ({ onActivate }
                 </GlassCard>
 
                 {user && (
-                    <p className="mt-8 text-center text-xs text-muted-foreground opacity-50">
-                        ID: {user.id} {user.username && `| @${user.username}`}
-                    </p>
+                    <div className="mt-8 text-center space-y-1 opacity-50">
+                        <p className="text-xs text-muted-foreground">
+                            ID: {user.id} {user.username && `| @${user.username}`}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">v1.1.0-stable</p>
+                    </div>
+                )}
+                {!user && (
+                    <div className="mt-8 text-center space-y-1 opacity-50">
+                        <p className="text-xs text-muted-foreground">Debug Mode (No Telegram ID)</p>
+                        <p className="text-[10px] text-muted-foreground">v1.1.0-stable</p>
+                    </div>
                 )}
             </div>
         </div>
