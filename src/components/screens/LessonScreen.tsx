@@ -145,8 +145,11 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
       const errors = answers
         .filter(a => !a.isCorrect)
         .map(a => ({ questionId: a.questionId, patternId: a.patternId }));
+      const correctIds = answers
+        .filter(a => a.isCorrect)
+        .map(a => a.patternId);
 
-      completeTest(dayNumber, score, errors);
+      completeTest(dayNumber, score, errors, correctIds);
       setPhase('result');
     }
   };
@@ -298,6 +301,13 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-4">
+            {/* Transcription */}
+            {signal.transcription && (
+              <div className="mb-2 px-2 py-1 rounded bg-primary/10 self-start text-xs font-mono text-primary">
+                {signal.transcription}
+              </div>
+            )}
+
             {/* Triggers */}
             <div>
               <p className="text-xs text-muted-foreground mb-2">🔍 Триггеры (ищи в вопросе):</p>
@@ -309,6 +319,17 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
                 ))}
               </div>
             </div>
+
+            {/* Visual Aid */}
+            {signal.visualAid && (
+              <div className="mt-4 mb-4 rounded-xl overflow-hidden border border-border bg-black/20 relative aspect-video flex items-center justify-center">
+                <p className="text-muted-foreground text-xs text-center p-4">
+                  [Пространство для диаграммы: {signal.visualAid}]
+                  <br />
+                  (В реальной версии здесь будет схема)
+                </p>
+              </div>
+            )}
 
             {/* Reaction */}
             {signal.reaction && (
@@ -553,7 +574,21 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
                   </span>
                   <div className="flex-1">
                     <span className={`${showResult && (isCorrect || isSelected) ? 'text-white font-medium' : ''}`}>
-                      {option.text}
+                      {showResult && isCorrect && matchingSignal?.lockKo ? (
+                        <>
+                          {option.text.split(new RegExp(`(${matchingSignal.lockKo})`, 'gi')).map((part, i) => (
+                            part.toLowerCase() === matchingSignal.lockKo?.toLowerCase() ? (
+                              <span key={i} className="underline underline-offset-4 decoration-white/50 font-black">
+                                {part}
+                              </span>
+                            ) : (
+                              part
+                            )
+                          ))}
+                        </>
+                      ) : (
+                        option.text
+                      )}
                     </span>
                   </div>
                 </div>

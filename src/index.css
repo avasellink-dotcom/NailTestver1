@@ -83,6 +83,10 @@
     min-height: 100vh;
     overflow-x: hidden;
   }
+
+  html.accessibility-mode {
+    font-size: 150%;
+  }
 }
 
 @layer utilities {

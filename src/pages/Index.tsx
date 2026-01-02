@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { ProgressProvider, useProgress } from '@/contexts/ProgressContext';
+import { SettingsProvider } from '@/contexts/SettingsContext';
 import { useTelegram } from '@/hooks/useTelegram';
 import { OnboardingScreen } from '@/components/screens/OnboardingScreen';
 import { HomeScreen } from '@/components/screens/HomeScreen';
@@ -165,9 +166,11 @@ const AppContent: React.FC = () => {
 const Index: React.FC = () => {
   return (
     <LanguageProvider>
-      <ProgressProvider>
-        <AppContent />
-      </ProgressProvider>
+      <SettingsProvider>
+        <ProgressProvider>
+          <AppContent />
+        </ProgressProvider>
+      </SettingsProvider>
     </LanguageProvider>
   );
 };

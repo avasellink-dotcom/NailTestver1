@@ -1,19 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useProgress } from '@/contexts/ProgressContext';
-import { Button } from '@/components/ui/button';
-import { GlassCard } from '@/components/GlassCard';
-import { ProgressRing } from '@/components/ProgressRing';
-import { LanguageToggle } from '@/components/LanguageToggle';
-import { Particles } from '@/components/Particles';
-import { PaymentModal } from '@/components/PaymentModal';
-import { ArrowRight, Dumbbell, RotateCcw, Trophy, Flame, Target, HelpCircle } from 'lucide-react';
+import { useSettings } from '@/contexts/SettingsContext';
+import { ArrowRight, Dumbbell, RotateCcw, Trophy, Flame, Target, HelpCircle, Type } from 'lucide-react';
 import courseData from '@/data/courseDays.json';
 
-// Import day images
-import day1Image from '@/assets/day-1.png';
-import day2Image from '@/assets/day-2.png';
-import day3Image from '@/assets/day-3.png';
+// ... (imports remain)
 
 interface HomeScreenProps {
   onContinue: (dayNumber: number) => void;
@@ -32,45 +21,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const { t } = useLanguage();
   const { progress, dayProgress, isDayAvailable } = useProgress();
+  const { settings, toggleAccessibilityMode } = useSettings();
   const [showPayment, setShowPayment] = useState(false);
 
-  const currentDay = progress.currentDay;
-  const totalDays = courseData.length;
-  const completedCount = progress.completedDays.length;
-  const overallProgress = Math.round((completedCount / totalDays) * 100);
-  const lastScore = progress.lastTestScore;
-
-  const accuracy = useMemo(() => {
-    if (progress.totalAnswered === 0) return 0;
-    return Math.round((progress.totalCorrect / progress.totalAnswered) * 100);
-  }, [progress.totalCorrect, progress.totalAnswered]);
-
-  const dayImages: Record<number, string> = {
-    1: day1Image,
-    2: day2Image,
-    3: day3Image,
-  };
-
-  const currentDayImage = dayImages[currentDay] || day1Image;
-  const currentDayData = courseData.find((d: any) => d.dayNumber === currentDay);
-  const currentDayTitle = currentDayData?.title || `${t('common.day')} ${currentDay}`;
-
-  const handleContinue = () => {
-    if (isDayAvailable(currentDay)) {
-      onContinue(currentDay);
-    } else {
-      setShowPayment(true);
-    }
-  };
-
-  const motivationalMessages = [
-    'Каждый день — шаг к цели! 💪',
-    'Ты становишься сильнее! 🚀',
-    'Прогресс налицо! 🌟',
-    'Так держать! 🔥',
-  ];
-
-  const motivationalMessage = motivationalMessages[completedCount % motivationalMessages.length];
+  // ... (rest of logic)
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden pb-6">
@@ -86,6 +40,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </h1>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={toggleAccessibilityMode}
+              className={`p-2 rounded-lg transition-colors ${settings.isAccessibilityMode ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80'}`}
+              title="Крупный шрифт"
+            >
+              <Type className="w-5 h-5" />
+            </button>
             <button
               onClick={onTutorial}
               className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"

@@ -425,7 +425,21 @@ export const TrainerScreen: React.FC<TrainerScreenProps> = ({ onBack, onSelectMo
                   </span>
                   <div className="flex-1">
                     <span className={`${showResult && (isCorrect || isSelected) ? 'text-white font-medium' : 'text-foreground'}`}>
-                      {option.text}
+                      {showResult && isCorrect && signalResult?.signal.lockKo ? (
+                        <>
+                          {option.text.split(new RegExp(`(${signalResult.signal.lockKo})`, 'gi')).map((part, i) => (
+                            part.toLowerCase() === signalResult.signal.lockKo?.toLowerCase() ? (
+                              <span key={i} className="underline underline-offset-4 decoration-white/50 font-black">
+                                {part}
+                              </span>
+                            ) : (
+                              part
+                            )
+                          ))}
+                        </>
+                      ) : (
+                        option.text
+                      )}
                     </span>
                   </div>
                 </div>

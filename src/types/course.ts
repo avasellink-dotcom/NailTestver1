@@ -22,6 +22,10 @@ export interface Signal {
     reaction: string;
     trap: string | null;
     visualHint?: string;
+    lock?: string; // The "Lock" (keyword in the correct answer)
+    lockKo?: string; // The Korean version of the lock
+    transcription?: string; // Romanization for Russian speakers
+    visualAid?: string; // URL or identifier for an image/diagram
     abcTermId?: string; // Link to ABC term
 }
 

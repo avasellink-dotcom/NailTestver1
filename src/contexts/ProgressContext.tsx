@@ -15,7 +15,13 @@ interface UserProgress {
     dayNumber: number;
     timestamp: number;
   }>;
-  patternStats: Record<string, { correct: number; wrong: number }>;
+  reviews: Array<{
+    patternId: string;
+    nextReview: number; // Timestamp
+    interval: number; // Days
+    easeFactor: number;
+    history: number[]; // Previous intervals
+  }>;
 }
 
 interface DayProgress {
@@ -36,11 +42,12 @@ interface ProgressContextType {
   completeAbc: (dayNumber: number, score: number) => void;
   completeSignals: (dayNumber: number) => void;
   completePatterns: (dayNumber: number) => void;
-  completeTest: (dayNumber: number, score: number, errors: Array<{ questionId: string; patternId: string }>) => void;
+  completeTest: (dayNumber: number, score: number, errors: Array<{ questionId: string; patternId: string }>, correctIds: string[]) => void;
   activatePremium: (code: string) => boolean;
   addError: (error: { questionId: string; patternId: string; dayNumber: number }) => void;
   clearErrors: () => void;
   getWeakPatterns: () => Array<{ patternId: string; errorCount: number }>;
+  getDueReviews: () => Array<{ patternId: string; nextReview: number }>;
   isDayAvailable: (dayNumber: number) => boolean;
 }
 
@@ -59,12 +66,16 @@ const defaultProgress: UserProgress = {
   totalAnswered: 0,
   errors: [],
   patternStats: {},
+  reviews: [],
 };
+
+const INITIAL_EASE_FACTOR = 2.5;
+const INITIAL_INTERVAL = 1; // 1 day
 
 export const ProgressProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [progress, setProgress] = useState<UserProgress>(() => {
     const saved = localStorage.getItem('userProgress');
-    return saved ? JSON.parse(saved) : defaultProgress;
+    return saved ? { ...defaultProgress, ...JSON.parse(saved) } : defaultProgress;
   });
 
   const [dayProgress, setDayProgress] = useState<Record<number, DayProgress>>(() => {
@@ -142,15 +153,86 @@ export const ProgressProvider: React.FC<{ children: ReactNode }> = ({ children }
     }));
   };
 
-  const completeTest = (dayNumber: number, score: number, errors: Array<{ questionId: string; patternId: string }>) => {
+  const scheduleReview = (patternId: string, isCorrect: boolean) => {
+    setProgress(prev => {
+      const existingReview = prev.reviews?.find(r => r.patternId === patternId);
+
+      let nextReview: number;
+      let interval: number;
+      let easeFactor: number;
+      let history: number[];
+
+      if (!existingReview) {
+        // First time seeing or reviewing this pattern
+        interval = isCorrect ? INITIAL_INTERVAL : 0.5; // 0.5 day penalty if wrong first time? Or just 0
+        easeFactor = INITIAL_EASE_FACTOR;
+        history = [];
+      } else {
+        easeFactor = existingReview.easeFactor;
+        history = existingReview.history;
+
+        if (isCorrect) {
+          // SM-2 simplified
+          if (existingReview.interval === 0) {
+            interval = 1;
+          } else if (existingReview.interval === 1) {
+            interval = 6;
+          } else {
+            interval = Math.round(existingReview.interval * easeFactor);
+          }
+          // Cap ease factor changes slightly if needed, but for now simple mult
+        } else {
+          // Wrong answer resets interval relative to difficulty
+          interval = 1;
+          easeFactor = Math.max(1.3, easeFactor - 0.2); // Decrease ease
+        }
+      }
+
+      // Calculate next review timestamp (Days -> Milliseconds)
+      nextReview = Date.now() + (interval * 24 * 60 * 60 * 1000);
+
+      const newReview = {
+        patternId,
+        nextReview,
+        interval,
+        easeFactor,
+        history: [...history, interval]
+      };
+
+      const otherReviews = prev.reviews ? prev.reviews.filter(r => r.patternId !== patternId) : [];
+
+      return {
+        ...prev,
+        reviews: [...otherReviews, newReview]
+      };
+    });
+  };
+
+  const completeTest = (dayNumber: number, score: number, errors: Array<{ questionId: string; patternId: string }>, correctIds?: string[]) => {
     const newPatternStats = { ...progress.patternStats };
 
+    // Process errors for stats
     errors.forEach(error => {
       if (!newPatternStats[error.patternId]) {
         newPatternStats[error.patternId] = { correct: 0, wrong: 0 };
       }
       newPatternStats[error.patternId].wrong += 1;
+      // Schedule immediate re-review (failure)
+      scheduleReview(error.patternId, false);
     });
+
+    // Process correct answers for SRS (if provided)
+    if (correctIds) {
+      correctIds.forEach(patternId => {
+        if (patternId) {
+          if (!newPatternStats[patternId]) {
+            newPatternStats[patternId] = { correct: 0, wrong: 0 };
+          }
+          newPatternStats[patternId].correct += 1;
+          scheduleReview(patternId, true);
+        }
+      });
+    }
 
     setDayProgress(prev => ({
       ...prev,
@@ -198,6 +280,8 @@ export const ProgressProvider: React.FC<{ children: ReactNode }> = ({ children }
       ...prev,
       errors: [...prev.errors, { ...error, timestamp: Date.now() }],
     }));
+    // Explicitly mark as failed review
+    scheduleReview(error.patternId, false);
   };
 
   const clearErrors = () => {
@@ -212,6 +296,14 @@ export const ProgressProvider: React.FC<{ children: ReactNode }> = ({ children }
     return Object.entries(patternErrors)
       .map(([patternId, errorCount]) => ({ patternId, errorCount }))
       .sort((a, b) => b.errorCount - a.errorCount);
+  };
+
+  const getDueReviews = () => {
+    if (!progress.reviews) return [];
+    const now = Date.now();
+    return progress.reviews
+      .filter(r => r.nextReview <= now)
+      .sort((a, b) => a.nextReview - b.nextReview);
   };
 
   const isDayAvailable = (dayNumber: number): boolean => {
@@ -235,6 +327,7 @@ export const ProgressProvider: React.FC<{ children: ReactNode }> = ({ children }
         addError,
         clearErrors,
         getWeakPatterns,
+        getDueReviews,
         isDayAvailable,
       }}
     >
