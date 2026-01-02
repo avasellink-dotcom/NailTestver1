@@ -48,13 +48,19 @@ export const AdminScreen: React.FC = () => {
         }
         setIsGenerating(true);
         try {
-            // Format: NAIL-XXXX-XXXX
-            const randomPart = () => Math.random().toString(36).substring(2, 6).toUpperCase();
-            const code = `NAIL-${randomPart()}-${randomPart()}`;
+            // Generate code
+            const code = Math.random().toString(36).substring(2, 15);
 
+            // Prepare insert data WITHOUT telegram_id
+            const insertData = {
+                code: code,
+                is_used: false
+            };
+
+            // Insert into database
             const { data, error } = await supabase
                 .from('activation_codes')
-                .insert([{ code, is_used: false }])
+                .insert(insertData)
                 .select()
                 .single();
 
@@ -121,7 +127,7 @@ export const AdminScreen: React.FC = () => {
                     <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
                         <div className="space-y-1 text-center sm:text-left">
                             <h3 className="font-semibold text-lg">Генерация нового кода</h3>
-                            <p className="text-xs text-muted-foreground">Формат: NAIL-XXXX-XXXX</p>
+                            <p className="text-xs text-muted-foreground">Формат: Случайная строка</p>
                         </div>
                         <Button
                             onClick={generateCode}
@@ -170,7 +176,6 @@ export const AdminScreen: React.FC = () => {
                                         </div>
                                         {code.is_used && (
                                             <div className="mt-1 text-xs text-muted-foreground">
-                                                <p>TG ID: {code.telegram_id}</p>
                                                 <p>Активирован: {new Date(code.activated_at!).toLocaleString()}</p>
                                             </div>
                                         )}
