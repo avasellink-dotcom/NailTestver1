@@ -1,4 +1,5 @@
 import { useSettings } from '@/contexts/SettingsContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { ArrowRight, Dumbbell, RotateCcw, Trophy, Flame, Target, HelpCircle, Type } from 'lucide-react';
 import courseData from '@/data/courseDays.json';
 
