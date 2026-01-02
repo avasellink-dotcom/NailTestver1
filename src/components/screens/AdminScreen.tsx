@@ -48,8 +48,9 @@ export const AdminScreen: React.FC = () => {
         }
         setIsGenerating(true);
         try {
-            // Generate code
-            const code = Math.random().toString(36).substring(2, 15);
+            // Format: NAIL-XXXX-XXXX
+            const randomPart = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+            const code = `NAIL-${randomPart()}-${randomPart()}`;
 
             // Prepare insert data WITHOUT telegram_id
             const insertData = {
@@ -127,7 +128,7 @@ export const AdminScreen: React.FC = () => {
                     <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
                         <div className="space-y-1 text-center sm:text-left">
                             <h3 className="font-semibold text-lg">Генерация нового кода</h3>
-                            <p className="text-xs text-muted-foreground">Формат: Случайная строка</p>
+                            <p className="text-xs text-muted-foreground">Формат: NAIL-XXXX-XXXX</p>
                         </div>
                         <Button
                             onClick={generateCode}
