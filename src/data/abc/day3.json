@@ -1,4 +1,6 @@
 {
+    "dayNumber": 3,
+    "theme": "질병 발생 (Disease)",
     "baseMarkers": [
         "base_cause",
         "base_result"
@@ -8,7 +10,7 @@
             "id": "day3_agent",
             "term": "병원체",
             "translation": "Возбудитель (Agent)",
-            "category": "cause",
+            "category": "reason",
             "hint": "Вирус, бактерия — причина болезни."
         },
         {
@@ -41,7 +43,7 @@
             "id": "day3_incubation",
             "term": "잠복기",
             "translation": "Инкубационный период",
-            "category": "process",
+            "category": "other",
             "hint": "Время от заражения до появления симптомов."
         }
     ]

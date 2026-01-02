@@ -738,7 +738,7 @@ export const LessonScreen: React.FC<LessonScreenProps> = ({
           <ABCTrainer
             key={dayNumber}
             dayNumber={dayNumber}
-            dayTerms={(abcDataMap[dayNumber]?.themeTerms || day1AbcData.themeTerms) as any}
+            dayTerms={(abcDataMap[dayNumber]?.themeTerms || []) as any}
             quizQuestions={quizDataMap[dayNumber] || day1MiniQuiz}
             onComplete={() => setPhase('intro')}
             onBack={onBack}

@@ -11,7 +11,7 @@ interface FlashcardProps {
 
 export const Flashcard: React.FC<FlashcardProps> = ({ term, onKnow, onRepeat }) => {
     const [isFlipped, setIsFlipped] = useState(false);
-    const config = categoryConfig[term.category];
+    const config = categoryConfig[term.category] || categoryConfig.other;
 
     return (
         <div className="w-full max-w-md mx-auto">
