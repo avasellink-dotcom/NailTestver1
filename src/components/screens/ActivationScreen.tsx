@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useProgress } from '@/contexts/ProgressContext';
 import { Button } from '@/components/ui/button';
 import { GlassCard } from '@/components/GlassCard';
 import { Particles } from '@/components/Particles';
@@ -14,37 +15,67 @@ interface ActivationScreenProps {
 export const ActivationScreen: React.FC<ActivationScreenProps> = ({ onActivate }) => {
     const { t } = useLanguage();
     const { user, hapticFeedback } = useTelegram();
+    const { activatePremium } = useProgress();
     const [code, setCode] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
     const handleActivate = async () => {
-        if (!isSupabaseConfigured) {
-            setError('Система активации временно недоступна (ошибка конфигурации)');
-            setIsLoading(false);
-            return;
-        }
-        if (!code.trim()) return;
+        const sanitizedCode = code.trim();
+        if (!sanitizedCode) return;
 
         setIsLoading(true);
         setError('');
 
         try {
-            // 1. Check if code exists and is not used
-            const { data: codeData, error: fetchError } = await supabase
+            // 1. First, check hardcoded codes via ProgressContext
+            if (activatePremium(sanitizedCode)) {
+                hapticFeedback('success');
+                localStorage.setItem('app_activated', 'true');
+                if (user?.id) {
+                    localStorage.setItem('activated_tg_id', user.id.toString());
+                }
+                onActivate();
+                return;
+            }
+
+            // 2. If not hardcoded, check Supabase
+            if (!isSupabaseConfigured) {
+                throw new Error('Система активации недоступна (ошибка конфигурации)');
+            }
+
+            // Search for the code directly (case-insensitive)
+            let { data: codeData, error: fetchError } = await supabase
                 .from('activation_codes')
                 .select('*')
-                .ilike('code', code.trim())
-                .eq('is_used', false)
+                .ilike('code', sanitizedCode)
                 .maybeSingle();
+
+            // If not found, try without dashes just in case
+            if (!codeData && !fetchError) {
+                const noDashes = sanitizedCode.replace(/-/g, '');
+                if (noDashes !== sanitizedCode) {
+                    const { data: retryData, error: retryError } = await supabase
+                        .from('activation_codes')
+                        .select('*')
+                        .ilike('code', noDashes)
+                        .maybeSingle();
+                    codeData = retryData;
+                    fetchError = retryError;
+                }
+            }
 
             if (fetchError) throw fetchError;
             
             if (!codeData) {
-                throw new Error('Некорректный или уже использованный код');
+                throw new Error('Некорректный код');
             }
 
-            // 2. Activate the code
+            if (codeData.is_used) {
+                throw new Error('Этот код уже был активирован');
+            }
+
+            // 3. Activate the code in Supabase
             const { error: updateError } = await supabase
                 .from('activation_codes')
                 .update({
@@ -56,10 +87,10 @@ export const ActivationScreen: React.FC<ActivationScreenProps> = ({ onActivate }
 
             if (updateError) {
                 console.error('Supabase update error:', updateError);
-                throw new Error(`Ошибка активации: ${updateError.message}`);
+                throw new Error(`Ошибка базы данных: ${updateError.message}`);
             }
 
-            // 3. Success
+            // 4. Success
             hapticFeedback('success');
             localStorage.setItem('app_activated', 'true');
             if (user?.id) {
